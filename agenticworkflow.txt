@@ -1,0 +1,206 @@
+flowchart TD
+
+%% =========================
+%% 1. INPUT LAYER
+%% =========================
+A[Trigger Event<br/>Txn / IT Alert / Policy Upload / Cron / External Feed]
+
+A --> B{Valid Input?}
+
+B -->|No| B1[Reject + Log Error<br/>Malformed Payload]
+B -->|Yes| C[Preprocessor<br/>Normalize + Enrich Metadata]
+
+%% =========================
+%% 2. DEDUP + IDEMPOTENCY
+%% =========================
+C --> D{Duplicate Event?}
+
+D -->|Yes| D1[Ignore + Audit Log]
+D -->|No| E[Assign Request ID + Trace ID]
+
+%% =========================
+%% 3. ORCHESTRATION
+%% =========================
+E --> F[Orchestrator Agent<br/>LangGraph]
+
+F --> G{Event Type}
+
+G -->|Financial| H1
+G -->|Security| H2
+G -->|Policy Update| H3
+G -->|Scheduled Audit| H4
+G -->|External Threat| H5
+
+%% =========================
+%% 4. PARALLEL EXECUTION
+%% =========================
+H1 --> P
+H2 --> P
+H3 --> P
+H4 --> P
+H5 --> P
+
+P[Spawn Agents in Parallel]
+
+P --> A1[Policy Analyst Agent]
+P --> A2[Compliance Agent]
+P --> A3[Risk Agent]
+P --> A4[Audit Agent]
+P --> A5[Reporting Agent]
+
+%% =========================
+%% 5. POLICY ANALYSIS
+%% =========================
+A1 --> PA1{Policy Found?}
+
+PA1 -->|No| PA2[Fallback Default Policy + Flag Gap]
+PA1 -->|Yes| PA3[Semantic Match Score]
+
+PA3 --> PA4{Conflict Detected?}
+
+PA4 -->|Yes| PA5[Policy Conflict Flag]
+PA4 -->|No| PA6[Policy OK]
+
+%% =========================
+%% 6. COMPLIANCE CHECK
+%% =========================
+A2 --> C1{User Exists?}
+
+C1 -->|No| C2[Block + Identity Fraud Flag]
+C1 -->|Yes| C3{Role Authorized?}
+
+C3 -->|No| C4[Violation: Clearance Mismatch]
+C3 -->|Yes| C5{Pending Approvals?}
+
+C5 -->|Yes| C6[Hold Transaction]
+C5 -->|No| C7[Compliance OK]
+
+%% =========================
+%% 7. RISK ENGINE
+%% =========================
+A3 --> R1{Enough Data?}
+
+R1 -->|No| R2[Assign Conservative High Risk]
+R1 -->|Yes| R3[Compute TVI Score]
+
+R3 --> R4{Risk Score}
+
+R4 -->|Low| R5[0-20]
+R4 -->|Medium| R6[20-70]
+R4 -->|High| R7[>70]
+
+%% =========================
+%% 8. ANOMALY + FRAUD CHECK
+%% =========================
+A3 --> F1{Anomaly Detected?}
+
+F1 -->|Yes| F2[Cross-System Correlation<br/>Vendor + Employee + Time]
+F1 -->|No| F3[No Anomaly]
+
+F2 --> F4{Fraud Pattern?}
+
+F4 -->|Yes| F5[Critical Fraud Flag]
+F4 -->|No| F6[Suspicious Only]
+
+%% =========================
+%% 9. AGENT FAILURE HANDLING
+%% =========================
+A1 --> X1{Agent Timeout?}
+A2 --> X2{Agent Timeout?}
+A3 --> X3{Agent Timeout?}
+
+X1 -->|Yes| X4[Retry Policy Agent]
+X2 -->|Yes| X5[Retry Compliance Agent]
+X3 -->|Yes| X6[Retry Risk Agent]
+
+X4 --> X7{Retry Failed?}
+X5 --> X7
+X6 --> X7
+
+X7 -->|Yes| X8[Fallback Safe Mode<br/>Block Action]
+
+%% =========================
+%% 10. DECISION ENGINE
+%% =========================
+PA5 --> D1
+C4 --> D1
+R7 --> D1
+F5 --> D1
+X8 --> D1
+
+PA6 --> D2
+C7 --> D2
+R5 --> D2
+F3 --> D2
+
+D1[High Risk / Conflict Path]
+D2[Safe Path]
+
+%% =========================
+%% 11. AMBIGUITY HANDLING
+%% =========================
+D1 --> H1{Conflicting Signals?}
+
+H1 -->|Yes| H2[Human-in-Loop<br/>CISO Approval]
+H1 -->|No| H3[Auto Block]
+
+%% =========================
+%% 12. ACTION ENGINE
+%% =========================
+D2 --> AE1[Approve + Execute]
+H3 --> AE2[Block / Freeze / Revoke]
+H2 --> AE3[Wait for Human Decision]
+
+%% =========================
+%% 13. SIDE EFFECTS
+%% =========================
+AE1 --> S1[Update DB + Notify Success]
+AE2 --> S2[Trigger Alerts + API Calls]
+AE3 --> S3[Manual Override Stored]
+
+%% =========================
+%% 14. AUDIT (CRITICAL)
+%% =========================
+S1 --> L1
+S2 --> L1
+S3 --> L1
+
+L1[Immutable Audit Log<br/>Timestamp + Reasoning + Inputs]
+
+%% =========================
+%% 15. REPORTING
+%% =========================
+L1 --> RPT[Generate Executive Report]
+
+RPT --> DASH[Dashboard Update<br/>KPIs + Risk Index]
+
+%% =========================
+%% 16. FEEDBACK LOOP
+%% =========================
+L1 --> FB[Feedback Agent]
+
+FB --> FB1{Pattern Detected?}
+
+FB1 -->|Yes| FB2[Optimize Policy / Risk Weights]
+FB1 -->|No| FB3[No Change]
+
+FB2 --> DB1[(Update Policy DB)]
+FB2 --> DB2[(Update Risk Params)]
+
+%% =========================
+%% 17. EDGE CASES (CRITICAL)
+%% =========================
+E --> EC1{System Overload?}
+
+EC1 -->|Yes| EC2[Queue + Rate Limit]
+EC1 -->|No| EC3[Continue]
+
+E --> EC4{Data Tampering Detected?}
+
+EC4 -->|Yes| EC5[Lock System + Alert Security]
+EC4 -->|No| EC6[Continue]
+
+E --> EC7{Time-based anomaly?}
+
+EC7 -->|Yes| EC8[Increase Risk Weight]
+EC7 -->|No| EC9[Normal]

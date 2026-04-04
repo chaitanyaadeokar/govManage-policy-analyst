@@ -1,0 +1,11 @@
+flask
+flask-cors
+langchain
+langgraph
+langchain-community
+langchain-core
+langchain-openai
+chromadb
+pymongo
+python-dotenv
+pytest

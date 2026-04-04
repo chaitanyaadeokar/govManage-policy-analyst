@@ -1,0 +1,247 @@
+--- Page 1 ---
+Presented by:Vishwakarma Institute of Technology, Pune
+EDAI Title:  Agentic AI Framework for Transparent and Efficient Governance
+Management - By Passion Infotech,PuneENGINEERING DESIGN & INNOVATION MSE SEM II 2025-26
+56-Rohit Bele (12310022)
+69-Monali Bhujbal (12311610)
+71-Avinash Bhurke  (12310015)
+86-Chaitanyaa Deokar (12311204)DIV :- CS-A GROUP:-TY-A4 Date - 13/03/2026 
+Project Guide :- Prof. Saraswati Patil
+DEPARTMENT OF COMPUTER ENGINEERING ,VIT,PUNE.
+--- Page 2 ---
+Index Page: 
+Problem Statement
+Literature Review 
+Objectives
+High Level Design 
+System Architecture
+Tech Stack
+Policy Analyst Agent
+Risk Assessment Agent
+Compliance Agent
+Audit Agent
+Feedback & Improvement Agent
+Conclusion 
+References 
+--- Page 3 ---
+Traditional governance systems rely heavily on manual processes, which often leads
+to slow decision-making, lack of transparency, and difficulty in monitoring policy
+compliance. Coordination between departments is also challenging, causing delays
+in approvals and workflow management. Due to the absence of automated systems
+for risk assessment and policy validation, governance processes become inefficient
+and difficult to track. Therefore, there is a need for an Agentic AI-based
+Governance Management System that can automate governance workflows,
+improve transparency, and enhance accountability in organizational decision-
+making.Problem  statem ent
+--- Page 4 ---
+Literature Review
+Title AuthorsJournal /
+Date of PublicationAbout the research
+Agentic AI: Autonomous
+Intelligence for
+Complex Goals—A
+Comprehensive SurveyAcharya, D. B.,
+Kuppan, K., &
+Divya, B.
+(n.d.).IEEE Transactions on
+Artificial Intelligence,
+2025The study defines agentic AI as autonomous, memory-
+enabled agents capable of planning, reasoning, and tool
+use. It highlights multi-agent coordination, adaptability, and
+modular architectures  as core capabilities. Findings show
+potential applications in complex workflows, directly
+relevant to automating recruitment orchestration.
+Towards autonomous
+system: flexible
+modular production
+system enhanced with
+large language model
+agentsXia, Y.,
+Shenoy, M.,
+Jazdi, N., &
+Weyrich, M.2023 IEEE 28th
+International Conference
+on Emerging Technologies
+and Factory Automation
+(ETFA)LLM-enhanced agents improved autonomy, adaptability,
+and task planning in a modular production system. They
+demonstrated natural language reasoning integrated with
+system control, enabling intelligent decision-making and
+dynamic workflow management. The agents also adapted to
+changing conditions and optimized task execution without
+manual intervention.
+AI governance systems:
+A multi-scale analysis
+framework, empirical
+findings, and future
+directionsAttard-Frost,
+Blair, and Kelly
+LyonsAI and Ethics 5, no. 3
+(2025)This study examines AI governance across multiple levels
+such as international, national, organizational, and technical
+domains. It finds that current governance effor ts are often
+fragmented and emphasizes the need for better
+coordination to improve accountability, transparency, and
+public trust in AI systems.
+--- Page 5 ---
+Literature Review
+Title Authors Journal  About the research
+Adaptive policies,
+policy analysis, and
+policy-making.Walker,
+Warren E., S.
+Adnan
+Rahman, and
+Jonathan
+Cave.European journal of
+operational
+Research Future conditions are uncertain, so rigid policies often fail.
+Adaptive policies work better because they stay effective across
+different scenarios. They combine immediate actions, long-term
+planning, and flexibility to adjust as new information emerges,
+turning policy change into a continuous learning process rather
+than sudden decisions.
+Protection motivation
+and deterrence: a
+framework for security
+policy compliance in
+organisations.Herath,
+Tejaswini, and
+H. Raghav Rao.European Journal of
+information systems Security policies are effective only if employees comply.
+Compliance is influenced by threat perception, self-efficacy,
+organisational commitment, social influence, and resources, but
+employees often underestimate breach risks.
+Review of autonomous
+and collaborative
+agentic AI and multi-
+agent systems for
+enterprise
+applications.Joshi,
+Satyadhar.International
+Journal of
+Innovative Research
+in Engineering and
+Management
+(IJIREM)June 2025The paper reviews AI agents and multi-agent systems that enable
+autonomous task execution and enterprise automation. It
+highlights efficiency gains, coordination challenges, and the need
+for proper governance and human-AI collaboration.
+--- Page 6 ---
+ObjectivesEnable real-time compliance monitoring to detect breaches within minutes and improve
+compliance rates.
+Develop an AI risk scoring system to identify policy risks early and reduce the overall risk
+index.
+Show the "Live KPIs(Key Performance Indicator)" and "Governance Health" tables for the
+user.
+Automate Realtime Notifications in Case of Breach or High Risk Score
+Automate report generation to produce reports with recommendations in minutes.
+Implement a self-improving feedback loop to continuously enhance system performance.
+--- Page 7 ---
+Flow:
+--- Page 8 ---
+System Architecture
+--- Page 9 ---
+Frontend & Visualisation Tailwind CSS,React.js,Chart.js,
+Agent Orchestration Langgraph,Langchain
+Foundation Model (LLM) gpt-oss-120b
+Semantic Model all-MiniLM-L6-v2
+Database Mongodb,Redis,ChromaDB
+Other Libraries, APIsSentence Transformers, Prompt Mgmt,REST APIs, Python-
+dotenv,smtplib,OS WatchDog
+Backend Flask (python)
+Hosting Backend: HugginfaceSpaces(Docker),  Frontend: Vercel
+Tech Stack:
+--- Page 10 ---
+MethodologyPolicy Analyst Agent:
+Purpose:
+The Policy Analyst Agent processes governance policies and extracts key information to
+evaluate policy effectiveness and identify areas that require review.
+Functions:
+Parses policy documents using NLP.
+Extracts key policy rules, objectives, and constraints.
+Performs semantic analysis using embedding models to identify policy relevance.
+Detects outdated or conflicting policies within the governance framework.
+Output:
+Extracted policy insights
+List of policies requiring revision
+Structured policy analysis report
+--- Page 11 ---
+MethodologyRisk Assessment Agent:
+Purpose:
+Evaluate potential governance risks related to policies and decisions.
+Functions:
+Receives policy insights from the Policy Analyst Agent.
+Uses predefined governance risk parameters.
+Calculates a risk score based on policy impact, compliance gaps, and operational risk
+factors.
+Identifies weak governance controls.
+Classifies risks into Low, Medium, or High categories.
+Stores calculated risk data in the system database.
+Output:
+Risk score
+Risk classification report
+List of weak governance controls
+--- Page 12 ---
+MethodologyCompliance Agent:
+Purpose:
+ The Compliance Agent verifies whether governance processes comply with regulatory
+requirements and internal policies.
+ Functions :
+Matches governance actions with predefined compliance rules and standards.
+Detects violations, missing approvals, and policy inconsistencies.
+Identifies pending audits or compliance gaps.
+Generates compliance status reports.
+Output:
+Compliance status
+List of violations or pending actions
+--- Page 13 ---
+MethodologyAudit Agent:
+Purpose:
+ The Audit Agent ensures transparency by maintaining records of governance activities and
+system decisions.  
+ Functions:
+Logs governance decisions and workflow activities.
+Maintains audit trails for policy analysis, risk evaluation, and compliance checks.
+Stores audit data in the governance database.
+Enables traceability and accountability for governance decisions.
+Output:
+Audit logs
+Decision trace records
+--- Page 14 ---
+MethodologyFeedback & Improvement Agent:
+Purpose:
+ This agent continuously improves the governance system by analyzing feedback and system
+performance.
+ Functions:
+Monitors performance of all agents.
+Collects feedback from governance outputs and reports.
+Identifies inefficiencies in the workflow.
+Updates agent parameters and optimization strategies.
+Output:
+System performance insights
+Recommendations for improving governance processes
+--- Page 15 ---
+The proposed Agentic AI Governance Management System automates
+policy management, compliance monitoring, and risk assessment using
+intelligent agents. It provides real-time insights, automated reports, and
+notifications to improve transparency and decision-making. Overall, the
+system helps organizations achieve efficient, secure, and data-driven
+governance processes.Conclusion
+--- Page 16 ---
+References
+1 . Y u ,  H . ,  J i ,  J . ,  W a n g ,  Z . ,  e t  a l .  ( 2 0 2 5 ) .  A g e n t i c  A I :  A u t o n o m o u s  i n t e l l i g e n c e  f o r  c o m p l e x  g o a l s — A  c o m p r e h e n s i v e  s u r v e y .  I E E E
+T r a n s a c t i o n s  o n  A r t i f i c i a l  I n t e l l i g e n c e .  h t t p s : / / d o i . o r g / 1 0 . 1 1 0 9 / T A I . 2 0 2 5 . 3 5 4 4 3 8 9
+2 . X i a ,  Y . ,  S h e n o y ,  M . ,  J a z d i ,  N . ,  &  W e y r i c h ,  M .  ( 2 0 2 3 ) .  T o w a r d s  a u t o n o m o u s  s y s t e m :  f l e x i b l e  m o d u l a r  p r o d u c t i o n  s y s t e m  e n h a n c e d
+w i t h  l a r g e  l a n g u a g e  m o d e l  a g e n t s .  I n  2 0 2 3  I E E E  2 8 t h  I n t e r n a t i o n a l  C o n f e r e n c e  o n  E m e r g i n g  T e c h n o l o g i e s  a n d  F a c t o r y
+A u t o m a t i o n  ( E T F A )  ( p p .  1 – 8 ) .  I E E E .  h t t p s : / / d o i . o r g / 1 0 . 1 1 0 9 / E T F A 5 4 6 3 1 . 2 0 2 3 . 1 0 2 7 5 3 6 2
+3 . C e r n a ,  L u c i e .  " T h e  n a t u r e  o f  p o l i c y  c h a n g e  a n d  i m p l e m e n t a t i o n :  A  r e v i e w  o f  d i f f e r e n t  t h e o r e t i c a l  a p p r o a c h e s . "  O r g a n i s a t i o n
+f o r  E c o n o m i c  C o o p e r a t i o n  a n d  D e v e l o p m e n t  ( O E C D )  r e p o r t  ( 2 0 1 3 ) :  4 9 2 - 5 0 2 .
+4 . W a l k e r ,  W a r r e n  E . ,  S .  A d n a n  R a h m a n ,  a n d  J o n a t h a n  C a v e .  " A d a p t i v e  p o l i c i e s ,  p o l i c y  a n a l y s i s ,  a n d  p o l i c y - m a k i n g . "  E u r o p e a n
+j o u r n a l  o f  o p e r a t i o n a l  R e s e a r c h  1 2 8 ,  n o .  2  ( 2 0 0 1 ) :  2 8 2 - 2 8 9 .
+5 . H e r a t h ,  T e j a s w i n i ,  a n d  H .  R a g h a v  R a o .  " P r o t e c t i o n  m o t i v a t i o n  a n d  d e t e r r e n c e :  a  f r a m e w o r k  f o r  s e c u r i t y  p o l i c y  c o m p l i a n c e  i n
+o r g a n i s a t i o n s . "  E u r o p e a n  J o u r n a l  o f  i n f o r m a t i o n  s y s t e m s  1 8 ,  n o .  2  ( 2 0 0 9 ) :  1 0 6 - 1 2 5 .
+6 . J o s h i ,  S a t y a d h a r .  " R e v i e w  o f  a u t o n o m o u s  a n d  c o l l a b o r a t i v e  a g e n t i c  A I  a n d  m u l t i - a g e n t  s y s t e m s  f o r  e n t e r p r i s e  a p p l i c a t i o n s . "
+( 2 0 2 5 ) .
+--- Page 17 ---
+TH AN K YO U
