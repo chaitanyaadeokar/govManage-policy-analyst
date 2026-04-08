@@ -9,7 +9,8 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from database import db
-
+from orchestrator import governance_app
+from reports import generate_macro_report
 
 load_dotenv()
 
@@ -215,11 +216,17 @@ def _generate_ai_explanation(
     3) What remediation is recommended
     """.strip()
 
+    schema_context = (
+        "Database Schema Context:\n"
+        "- Transaction Record: { event_id, event_type, status, risk_level, action_taken, tvi_score, rules_used }\n"
+        "- Rule Hit: { rule_code, description, severity, action_on_fail }"
+    )
+
     try:
         llm = ChatGroq(model_name=model_name)
         response = llm.invoke(
             [
-                SystemMessage(content="You are a governance risk explainer. Keep output concise and practical."),
+                SystemMessage(content=f"You are a governance risk explainer. Keep output concise and practical.\n{schema_context}"),
                 HumanMessage(content=prompt),
             ]
         )
@@ -276,7 +283,7 @@ def _run_assessment(mode: str, event_type: str, payload: Dict[str, Any]) -> Dict
 
 @app.route("/", methods=["GET"])
 def read_root():
-    return jsonify({"status": "GovManage API active", "storage": "MongoDB", "modes": ["minimum", "rule_engine", "advanced"]})
+    return jsonify({"status": "GovManage API active", "storage": "MongoDB", "modes": ["minimum", "rule_engine", "advanced", "agentic"]})
 
 
 @app.route("/api/kpis", methods=["GET"])
@@ -337,8 +344,8 @@ def trigger_event():
     payload = data.get("payload")
     mode = str(data.get("mode", "advanced")).strip().lower()
 
-    if mode not in {"minimum", "rule_engine", "advanced"}:
-        return jsonify({"error": "mode must be one of: minimum, rule_engine, advanced"}), 400
+    if mode not in {"minimum", "rule_engine", "advanced", "agentic"}:
+        return jsonify({"error": "mode must be one of: minimum, rule_engine, advanced, agentic"}), 400
 
     if not isinstance(event_type, str) or not isinstance(payload, dict):
         return jsonify({"error": "event_type (str) and payload (dict) required"}), 400
@@ -346,21 +353,30 @@ def trigger_event():
     clean_payload = _normalize_payload(payload)
     event_id = str(uuid.uuid4())
 
-    core_mode = "minimum" if mode == "minimum" else "rule_engine"
-    assessed = _run_assessment(core_mode, event_type, clean_payload)
-
-    ai_explanation = None
-    if mode == "advanced":
-        ai_explanation = _generate_ai_explanation(
-            event_id=event_id,
-            event_type=event_type,
-            payload=clean_payload,
-            risk_level=assessed["risk_level"],
-            path_taken=assessed["path_taken"],
-            action_taken=assessed["action_taken"],
-            failed_checks=assessed["rules_used"],
-        )
-        assessed["audit_trace"].append("Option 3 (Advanced): AI reasoning added")
+    if mode in {"advanced", "agentic"}:
+        state_input = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "payload": clean_payload,
+            "messages": []
+        }
+        result_state = governance_app.invoke(state_input)
+        final_dec = result_state.get("final_decision")
+        
+        assessed = {
+            "path_taken": final_dec.path_taken,
+            "action_taken": final_dec.action_taken,
+            "status": final_dec.status,
+            "risk_level": final_dec.risk_level,
+            "tvi_score": final_dec.tvi_score,
+            "rules_used": final_dec.rules_used,
+            "audit_trace": final_dec.audit_trace,
+        }
+        ai_explanation = final_dec.ai_explanation
+    else:
+        core_mode = "minimum" if mode == "minimum" else "rule_engine"
+        assessed = _run_assessment(core_mode, event_type, clean_payload)
+        ai_explanation = None
 
     now = datetime.now(timezone.utc).isoformat()
 
@@ -420,6 +436,14 @@ def trigger_event():
             "ai_explanation": ai_explanation,
         }
     )
+
+
+@app.route("/api/analytics/report", methods=["POST"])
+def analytics_report():
+    data = request.json or {}
+    report_type = data.get("report_type", "compliance")
+    result = generate_macro_report(report_type)
+    return jsonify(result)
 
 
 if __name__ == "__main__":
