@@ -1,0 +1,62 @@
+GOVMANAGE - DECENTRALIZED GOVERNANCE AI SYSTEM
+FEATURES LIST
+
+1. MULTI-AGENT MICROSERVICES ARCHITECTURE
+The system is built on a decentralized pipeline where independent AI agents process governance events in parallel micro-processes.
+
+2. ASYNCHRONOUS FILESYSTEM MESSAGE BUS
+Communication between agents is handled via a shared_queues filesystem bus, ensuring high auditability and decoupling of concerns.
+
+3. DYNAMIC SCHEMA AWARENESS
+AI agents dynamically introspect the MongoDB database structure at runtime, allowing the system to adapt to new fields and metadata without code changes.
+
+4. 9 SPECIALIZED AI MICRO-AGENTS
+- Orchestrator: Handles initial event validation and dispatching.
+- Policy Analyst: Identifies sectoral conflicts and policy risk scores.
+- Compliance Agent: Validates user authorization, roles, and clearance levels.
+- Risk Assessment Agent: Calculates TVI (Threat, Vulnerability, Impact) scores.
+- Decision Engine: Synthesizes findings into a final governance path.
+- Audit Agent: Generates detailed traceability logs for accountability.
+- Reporting Agent: Extracts high-level insights for dashboard analytics.
+- Feedback Agent: Formats the final verdict for real-time user notification.
+- Persistence Agent: Commits the final assessment state to the MongoDB database.
+
+5. MONGODB PERSISTENCE LAYER
+Centralized storage for policies, employee records, risk parameters, and the complete history of governance actions and audit logs.
+
+6. FLASK REST API INTEGRATION
+A modern API layer that bridges the asynchronous micro-agent pipeline with a synchronous dashboard experience using a wait-poll loop.
+
+7. AUTOMATED SYSTEM RESET UTILITY
+A comprehensive maintenance script (reset_system.py) that wipes the database, clears agent filesystem queues, and resets shared memory for a fresh start.
+
+8. INTELLIGENT MACRO REPORTING
+A dedicated reporting service that uses LLMs to transform raw governance data into structured executive summaries and metric tables.
+
+9. STANDARDIZED AI MODELING
+Standardized across the entire platform using the high-performance 'openai/gpt-oss-120b' model via the Groq provider for consistent reasoning.
+
+10. HYBRID RULE ENGINE
+Combines deterministic threshold-based rules with probabilistic agentic reasoning for a robust 'Defense in Depth' governance model.
+
+11. FULL AUDIT TRACEABILITY
+Every decision made by the AI includes a 'Reasoning' log and an audit trace, explaining exactly why an action was approved, flagged, or blocked.
+
+12. SECTORAL POLICY SUPPORT
+Built-in awareness for multiple organizational sectors including Finance, Technology, Security, and Human Resources.
+
+13. REAL-TIME TVI RISK SCORING
+Dynamic calculation of Threat x Vulnerability x Impact (TVI) to provide a normalized risk score (0.0 - 1.0) for every system event.
+
+14. AUTO-DISPATCH & ORCHESTRATION
+Automated routing of events through specific agent chains based on the event type and governance mode (Minimum, Rule Engine, Advanced).
+
+MANAGEMENT FRAMEWORK OVERVIEW
+The GovManage framework adheres to a "Defense-in-Depth" governance philosophy:
+
+- DECENTRALIZED CONTROL: No single point of failure. Each governance domain (Policy, Risk, Compliance) is operated by an isolated AI agent with its own context.
+- AUDIT-CENTRIC DESIGN: The framework prioritizes "Why" over "What". Every automated verdict is accompanied by a natural language reasoning trace stored in the permanent audit log.
+- EVENT-DRIVEN PIPELINE: The framework operates on an event-bus model. It can handle financial transactions, policy updates, and employee clearance changes as discrete, trackable events.
+- ADAPTIVE INTELLIGENCE: Through dynamic schema awareness, the framework "self-heals" when the underlying data model changes, ensuring continuous governance availability.
+- SAFE-BY-DEFAULT FALLBACKS: Any failure in the AI chain—whether a timeout, a model error, or a high-risk conflict—automatically routes the event to a "Review Path" for human intervention.
+- SEAMLESS INTEGRATION: The framework is designed to sit between a user-facing frontend and a backend data store, acting as an intelligent firewall for organizational policy.

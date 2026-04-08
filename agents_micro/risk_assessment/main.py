@@ -13,6 +13,13 @@ from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
 
 # Absolute paths
+FILE_PATH = os.path.abspath(__file__)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+
+from database import db
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
 INBOX_DIR = os.path.join(SHARED_QUEUES, "2_risk")
@@ -33,13 +40,7 @@ llm = ChatGroq(model_name=model_name)
 
 def analyze_risk(state: AgentState):
     payload_str = json.dumps(state['payload'])
-    schema_context = """
-    Database Schema Context:
-    - User Info: {{ user_id, role, clearance, name }}
-    - Policy: {{ policy_id, name, sector, risk }}
-    - Rule: {{ rule_code, description, condition, threshold, severity, action_on_fail }}
-    - Risk Parameters: {{ event_type, threat, vulnerability, impact, weight }}
-    """
+    schema_context = db.get_schema_context()
     
     prompt = f"""
     You are an expert Risk Assessment AI.

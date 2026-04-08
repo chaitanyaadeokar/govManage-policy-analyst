@@ -162,6 +162,32 @@ class MongoGovDB:
             return 0.2
         return float(rows[0].get("avg_tvi", 0.2) or 0.2)
 
+    def get_schema_context(self) -> str:
+        """Dynamically returns a prompt context describing the DB structure."""
+        schema = """
+        SYSTEM DATABASE SCHEMA CONTEXT:
+        1. Employees (Collection: employees):
+           - Fields: { user_id, name, role, clearance }
+           - Roles: employee, manager, director, vendor
+           - Clearance: level_0 to level_3
+
+        2. Policies (Collection: policies):
+           - Fields: { policy_id, name, sector, risk }
+           - Sectors: Finance, Technology, Security, HR
+           - Risk Levels: Low, Medium, High
+
+        3. Rule Engine (Collection: rule_engine):
+           - Fields: { rule_code, description, condition, threshold, required_role, severity, action_on_fail, enabled }
+           - Types: amount_gt_role_required, role_block_for_event, clearance_min_for_event
+
+        4. Risk Parameters (Collection: risk_parameters):
+           - Fields: { event_type, threat, vulnerability, impact, weight }
+
+        5. Governance Actions (Collection: governance_actions):
+           - Fields: { event_id, event_type, payload, status, path_taken, action_taken, risk_level, tvi_score, timestamp }
+        """
+        return schema
+
 
 db = MongoGovDB()
 

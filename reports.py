@@ -26,11 +26,7 @@ def generate_macro_report(report_type: str) -> dict:
         llm = ChatGroq(model_name="openai/gpt-oss-120b", temperature=0.1)
         structured_llm = llm.with_structured_output(ReportStructure)
         
-        schema_context = """
-        Database Schema Context:
-        - Transaction (action): {{ event_id, event_type, payload (amount, description, user_id), status, risk_level, action_taken, rules_used, tvi_score }}
-        - Policy: {{ policy_id, name, sector, risk }}
-        """
+        schema_context = db.get_schema_context()
         
         prompt = ChatPromptTemplate.from_messages([
             ("system", "You are an expert enterprise Data Analyst and Governance Expert. "
