@@ -35,16 +35,28 @@ llm = ChatGroq(model_name=model_name)
 
 def analyze_policy(state: AgentState):
     payload_str = json.dumps(state['payload'])
+    schema_context = """
+    Database Schema Context:
+    - User Info: {{ user_id, role, clearance, name }}
+    - Policy: {{ policy_id, name, sector, risk }}
+    - Rule: {{ rule_code, description, condition, threshold, severity, action_on_fail }}
+    - Risk Parameters: {{ event_type, threat, vulnerability, impact, weight }}
+    """
+    
     prompt = f"""
     You are an expert Policy Analyst AI.
+    {schema_context}
+    
     Evaluate the following event payload against standard governance policies.
     Payload: {payload_str}
     
     Determine if this violates any strict rules.
     Return ONLY a valid JSON with keys:
-    "policy_conflict": boolean,
-    "matched_policies": list of strings (names of rules checked),
-    "policy_analysis_score": float (0.0 to 1.0, where 1.0 is highest conflict probability)
+    {{
+      "policy_conflict": boolean,
+      "matched_policies": list of strings (names of rules checked),
+      "policy_analysis_score": float (0.0 to 1.0, where 1.0 is highest conflict probability)
+    }}
     """
     
     response = llm.invoke([

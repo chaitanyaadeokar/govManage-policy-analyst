@@ -273,5 +273,38 @@
             "Compliance Output: Auth=False",
             "Decision Engine: Compliance evaluation returned Authorized=False due to insufficient role information. According to the decision rules, any Unauthorized result mandates a Block Path regardless of conflict status or risk level."
         ]
+    },
+    {
+        "event_id": "c20705e1-a602-4a2b-ac93-51fc82047abf",
+        "summary": "Event c20705e1-a602-4a2b-ac93-51fc82047abf - Risk: Low, Compliance: OK",
+        "final_action": "Auto Blocked",
+        "timestamp": "2026-04-08 20:24:30",
+        "audit_trace": [
+            "Policy Output: Conflict=False",
+            "Compliance Output: Auth=False",
+            "Decision Engine: Compliance check failed because user role or clearance information for user_id E101 was not found (Authorized=False). According to the decision rules, any Unauthorized result mandates a Block Path, overriding the low conflict and low risk assessments."
+        ]
+    },
+    {
+        "event_id": "86348733-5196-4e21-b29d-5b2916ebe6a2",
+        "summary": "Event 86348733-5196-4e21-b29d-5b2916ebe6a2 - Risk: Low, Compliance: OK",
+        "final_action": "Auto Blocked",
+        "timestamp": "2026-04-08 20:29:29",
+        "audit_trace": [
+            "Policy Output: Conflict=False",
+            "Compliance Output: Auth=False",
+            "Decision Engine: Compliance evaluation indicates Unauthorized=False because the user information could not be found in the database, preventing verification of role or clearance. According to the rule, any Unauthorized result mandates a Block Path, leading to automatic blocking of the event."
+        ]
+    },
+    {
+        "event_id": "139d9d82-7e73-4ca9-8722-1a391605b5d3",
+        "summary": "Event 139d9d82-7e73-4ca9-8722-1a391605b5d3 - Risk: Low, Compliance: OK",
+        "final_action": "Auto Blocked",
+        "timestamp": "2026-04-08 20:33:31",
+        "audit_trace": [
+            "Policy Output: Conflict=False",
+            "Compliance Output: Auth=False",
+            "Decision Engine: Compliance check failed (Authorized=False) due to insufficient user role/clearance data, which overrides the low risk assessment and lack of policy conflict, mandating an automatic block."
+        ]
     }
 ]

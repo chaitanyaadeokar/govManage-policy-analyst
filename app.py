@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import json
 import os
 import uuid
+import time
 from typing import Any, Dict, List, Tuple
 
 from dotenv import load_dotenv
@@ -9,7 +10,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from database import db
-from orchestrator import governance_app
 from reports import generate_macro_report
 
 load_dotenv()
@@ -354,73 +354,92 @@ def trigger_event():
     event_id = str(uuid.uuid4())
 
     if mode in {"advanced", "agentic"}:
-        state_input = {
-            "event_id": event_id,
-            "event_type": event_type,
-            "payload": clean_payload,
-            "messages": []
-        }
-        result_state = governance_app.invoke(state_input)
-        final_dec = result_state.get("final_decision")
+        # --- Micro-Agent Integration ---
+        # 1. Drop JSON into 1_inbox
+        inbox_dir = os.path.join("agents_micro", "shared_queues", "1_inbox")
+        os.makedirs(inbox_dir, exist_ok=True)
         
+        event_file = os.path.join(inbox_dir, f"{event_id}.json")
+        with open(event_file, 'w') as f:
+            json.dump({"event_id": event_id, "event_type": event_type, "payload": clean_payload}, f, indent=4)
+        
+        print(f"[API] Dispatched {event_id} to Micro-Agent Inbox.")
+
+        # 2. Wait for completion token in 7_complete
+        complete_dir = os.path.join("agents_micro", "shared_queues", "7_complete")
+        os.makedirs(complete_dir, exist_ok=True)
+        
+        result_file = os.path.join(complete_dir, f"{event_id}.json")
+        
+        # Max wait 15 seconds (typical chain time is 3-5sec)
+        timeout = 15
+        start_time = time.time()
+        final_result = None
+        
+        while (time.time() - start_time) < timeout:
+            if os.path.exists(result_file):
+                time.sleep(0.5) # ensure fully written
+                with open(result_file, 'r') as f:
+                    final_result = json.load(f)
+                break
+            time.sleep(0.5)
+            
+        if not final_result:
+             return jsonify({
+                 "error": "Micro-Agent timeout", 
+                 "event_id": event_id,
+                 "status": "Review",
+                 "action_taken": "Timeout - Fallback to Manual Review"
+             }), 504
+
         assessed = {
-            "path_taken": final_dec.path_taken,
-            "action_taken": final_dec.action_taken,
-            "status": final_dec.status,
-            "risk_level": final_dec.risk_level,
-            "tvi_score": final_dec.tvi_score,
-            "rules_used": final_dec.rules_used,
-            "audit_trace": final_dec.audit_trace,
+            "path_taken": final_result.get("path_taken", "Review Path").strip(),
+            "action_taken": final_result.get("action_taken", "Flagged for Review"),
+            "status": "Approved" if "Safe" in final_result.get("path_taken", "") else "Review",
+            "tvi_score": final_result.get("tvi_score", 0.5),
+            "risk_level": final_result.get("risk_level", "Medium"),
+            "rules_used": [], # Combined in audit trace for micro-agents
+            "audit_trace": final_result.get("audit_trace", []),
         }
-        ai_explanation = final_dec.ai_explanation
+        ai_explanation = final_result.get("reasoning")
     else:
+        # Standard Engine path: We MUST log here
         core_mode = "minimum" if mode == "minimum" else "rule_engine"
         assessed = _run_assessment(core_mode, event_type, clean_payload)
         ai_explanation = None
 
-    now = datetime.now(timezone.utc).isoformat()
-
-    action_doc = {
-        "event_id": event_id,
-        "event_type": event_type,
-        "payload": clean_payload,
-        "user_id": clean_payload.get("user_id"),
-        "status": assessed["status"],
-        "path_taken": assessed["path_taken"],
-        "action_taken": assessed["action_taken"],
-        "risk_level": assessed["risk_level"],
-        "tvi_score": assessed["tvi_score"],
-        "rules_used": assessed["rules_used"],
-        "timestamp": now,
-    }
-
-    audit_doc = {
-        "event_id": event_id,
-        "event_type": event_type,
-        "risk_level": assessed["risk_level"],
-        "tvi_score": assessed["tvi_score"],
-        "path_taken": assessed["path_taken"],
-        "action_taken": assessed["action_taken"],
-        "audit_trace": assessed["audit_trace"],
-        "rules_used": assessed["rules_used"],
-        "ai_explanation": ai_explanation,
-        "timestamp": now,
-    }
-
-    report_doc = {
-        "event_id": event_id,
-        "summary": f"Event {event_id} => {assessed['action_taken']} ({assessed['risk_level']})",
-        "governance_summary": f"Mode={mode}, Risk={assessed['risk_level']}, Failed Rules={len(assessed['rules_used'])}",
-        "final_action": assessed["action_taken"],
-        "audit_trace": assessed["audit_trace"],
-        "rules_used": assessed["rules_used"],
-        "ai_explanation": ai_explanation,
-        "timestamp": now,
-    }
-
-    db.log_action(action_doc)
-    db.add_audit_log(audit_doc)
-    db.add_report(report_doc)
+        now = datetime.now(timezone.utc).isoformat()
+        
+        # Log to Database only for non-agentic path (Persistence Agent handles agentic path)
+        action_doc = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "payload": clean_payload,
+            "user_id": clean_payload.get("user_id"),
+            "status": assessed["status"],
+            "path_taken": assessed["path_taken"],
+            "action_taken": assessed["action_taken"],
+            "risk_level": assessed["risk_level"],
+            "tvi_score": assessed["tvi_score"],
+            "rules_used": assessed["rules_used"],
+            "timestamp": now,
+        }
+        
+        audit_doc = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "risk_level": assessed["risk_level"],
+            "tvi_score": assessed["tvi_score"],
+            "path_taken": assessed["path_taken"],
+            "action_taken": assessed["action_taken"],
+            "audit_trace": assessed["audit_trace"],
+            "rules_used": assessed["rules_used"],
+            "ai_explanation": ai_explanation,
+            "timestamp": now,
+        }
+        
+        db.log_action(action_doc)
+        db.add_audit_log(audit_doc)
 
     return jsonify(
         {

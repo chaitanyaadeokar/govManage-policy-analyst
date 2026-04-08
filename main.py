@@ -1,7 +1,6 @@
-import json
 from uuid import uuid4
 from datetime import datetime
-from orchestrator import governance_app
+import agents
 
 def log_cmd(action_str: str):
     """Utility to log CLI actions locally to cmds.txt"""
@@ -56,8 +55,7 @@ def run_simulation():
 
     for name, evt in events:
         log_cmd(f"Processing {name}")
-        result = governance_app.invoke(evt)
-        final_dec = result.get('final_decision')
+        final_dec = agents.process_governance_event(evt)
         print("======== RESULTS ========")
         print(f"Path Taken: {final_dec.path_taken}")
         print(f"Final Action: {final_dec.action_taken}")

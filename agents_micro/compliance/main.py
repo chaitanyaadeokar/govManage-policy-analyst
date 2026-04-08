@@ -34,15 +34,27 @@ llm = ChatGroq(model_name=model_name)
 
 def analyze_compliance(state: AgentState):
     payload_str = json.dumps(state['payload'])
+    schema_context = """
+    Database Schema Context:
+    - User Info: {{ user_id, role, clearance, name }}
+    - Policy: {{ policy_id, name, sector, risk }}
+    - Rule: {{ rule_code, description, condition, threshold, severity, action_on_fail }}
+    - Risk Parameters: {{ event_type, threat, vulnerability, impact, weight }}
+    """
+    
     prompt = f"""
     You are an expert Compliance AI. 
+    {schema_context}
+    
     Review this event payload to determine if the user has correct roles/authorization to perform this action.
     Payload: {payload_str}
     
     Assume a strict tier system. 
     Return ONLY a valid JSON with keys:
-    "user_authorized": boolean,
-    "compliance_violation": string (Description of violation if any, else "")
+    {{
+      "user_authorized": boolean,
+      "compliance_violation": string (Description of violation if any, else "")
+    }}
     """
     
     response = llm.invoke([
