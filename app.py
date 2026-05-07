@@ -1106,6 +1106,162 @@ def get_chat_session(session_id: str):
     return jsonify(session)
 
 
+# ---------------------------------------------------------------------------
+# Policy Generation
+# ---------------------------------------------------------------------------
+
+@app.route("/api/policies/generate", methods=["POST"])
+def generate_policy():
+    """
+    Generate a governance policy document using the LLM.
+    Body: { topic, sector, risk_level, framework, event_type (optional) }
+    The generated text is chunked and indexed into ChromaDB, then saved to
+    MongoDB — identical storage path to a user-uploaded document.
+    """
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available — check GROQ_API_KEY"}), 503
+
+    body = request.get_json(silent=True) or {}
+    topic = (body.get("topic") or "").strip()
+    sector = (body.get("sector") or "General").strip()
+    risk_level = (body.get("risk_level") or "Medium").strip()
+    framework = (body.get("framework") or "custom").strip()
+    event_type = (body.get("event_type") or "").strip()
+
+    if not topic:
+        return jsonify({"error": "topic is required"}), 400
+
+    schema_context = db.get_schema_context()
+    framework_context = ""
+    if framework and framework != "custom":
+        fw = db.get_framework(framework)
+        if fw:
+            controls_preview = "; ".join(
+                f"{c.get('control_id','?')} {c.get('title','')}"
+                for c in (fw.get("controls") or [])[:8]
+            )
+            framework_context = (
+                f"\nRelevant framework: {fw.get('name',framework)}\n"
+                f"Key controls to reference: {controls_preview}"
+            )
+
+    prompt = f"""You are an expert governance policy writer for a {sector} organisation.
+{schema_context}{framework_context}
+
+Write a complete, professional governance policy document on the following topic:
+Topic: {topic}
+Sector: {sector}
+Risk Level: {risk_level}
+{f"Applicable to event type: {event_type}" if event_type else ""}
+
+The policy must be practical, specific, and enforceable.
+
+Return ONLY valid JSON with exactly these keys:
+{{
+  "name": "<concise policy title>",
+  "purpose": "<1-2 sentences explaining why this policy exists>",
+  "scope": "<who and what systems this policy applies to>",
+  "policy_statements": ["<statement 1>", "<statement 2>", ...],
+  "controls": ["<control measure 1>", "<control measure 2>", ...],
+  "enforcement": "<consequences for non-compliance and how violations are handled>",
+  "review_cycle": "<how often this policy should be reviewed>"
+}}
+
+Include at least 5 policy_statements and 4 controls. Be specific, not generic."""
+
+    try:
+        model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        llm = ChatGroq(model_name=model_name)
+        response = llm.invoke([
+            SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
+            HumanMessage(content=prompt),
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.strip()
+        policy_json = json.loads(content)
+    except Exception as e:
+        return jsonify({"error": f"LLM generation failed: {e}"}), 500
+
+    # Serialize to plain text for chunking + ChromaDB indexing
+    policy_name = policy_json.get("name", topic)
+    lines = [
+        f"POLICY: {policy_name}",
+        f"Sector: {sector} | Risk Level: {risk_level} | Framework: {framework}",
+        "",
+        f"PURPOSE\n{policy_json.get('purpose', '')}",
+        "",
+        f"SCOPE\n{policy_json.get('scope', '')}",
+        "",
+        "POLICY STATEMENTS",
+    ]
+    for i, stmt in enumerate(policy_json.get("policy_statements", []), 1):
+        lines.append(f"  {i}. {stmt}")
+    lines += [
+        "",
+        "CONTROLS",
+    ]
+    for i, ctrl in enumerate(policy_json.get("controls", []), 1):
+        lines.append(f"  {i}. {ctrl}")
+    lines += [
+        "",
+        f"ENFORCEMENT\n{policy_json.get('enforcement', '')}",
+        "",
+        f"REVIEW CYCLE\n{policy_json.get('review_cycle', '')}",
+    ]
+    raw_text = "\n".join(lines)
+
+    # Chunk and index
+    document_id = f"gen_{uuid.uuid4().hex[:12]}"
+    chunks = chunk_text(raw_text)
+    chroma_status = "disabled"
+    if _chroma_ok:
+        try:
+            n = upsert_chunks(
+                document_id=document_id,
+                chunks=chunks,
+                metadata={"name": policy_name, "sector": sector, "risk": risk_level, "framework": framework},
+            )
+            chroma_status = f"indexed ({n} chunks)"
+        except Exception as ce:
+            chroma_status = f"chroma error: {ce}"
+
+    # Save to MongoDB
+    doc = {
+        "document_id": document_id,
+        "name": policy_name,
+        "description": f"AI-generated policy — {topic}",
+        "file_name": f"{document_id}.txt",
+        "file_type": "generated",
+        "sector": sector,
+        "risk": risk_level,
+        "framework": framework,
+        "tags": ["ai-generated", sector.lower(), risk_level.lower()],
+        "raw_text": raw_text,
+        "chunk_count": len(chunks),
+        "upload_date": datetime.now(timezone.utc).isoformat(),
+        "is_active": True,
+        "chroma_status": chroma_status,
+        "generated_structure": policy_json,
+    }
+    db.add_policy_document(doc)
+
+    print(f"[generate_policy] doc={document_id} | chunks={len(chunks)} | chroma={chroma_status}")
+    return jsonify({
+        "document_id": document_id,
+        "name": policy_name,
+        "sector": sector,
+        "risk": risk_level,
+        "framework": framework,
+        "chunk_count": len(chunks),
+        "chroma_status": chroma_status,
+        "policy": policy_json,
+    }), 201
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(port=port, debug=False)

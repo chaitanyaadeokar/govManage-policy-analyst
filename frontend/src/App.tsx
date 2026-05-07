@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, CheckCircle, Database, FileText, ShieldCheck, Sparkles, XCircle, AlertTriangle, FileBarChart, PieChart, Info, ChevronRight, Upload, Trash2, FileCheck, MessageSquare, Send, Bot, User } from 'lucide-react';
+import { Activity, CheckCircle, Database, FileText, ShieldCheck, Sparkles, XCircle, AlertTriangle, FileBarChart, PieChart, Info, ChevronRight, Upload, Trash2, FileCheck, MessageSquare, Send, Bot, User, Wand2 } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, Filler, Legend, LineElement, LinearScale, PointElement, Title, Tooltip } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -104,6 +104,24 @@ type UploadForm = {
   framework: string;
 };
 
+type GeneratedPolicy = {
+  name: string;
+  purpose: string;
+  scope: string;
+  policy_statements: string[];
+  controls: string[];
+  enforcement: string;
+  review_cycle: string;
+};
+
+type GenerateForm = {
+  topic: string;
+  sector: string;
+  risk_level: string;
+  framework: string;
+  event_type: string;
+};
+
 type Citation = {
   name: string;
   sector?: string;
@@ -154,6 +172,15 @@ export default function App() {
   const [uploadForm, setUploadForm] = useState<UploadForm>({
     name: '', sector: 'Finance', risk: 'Medium', description: '', framework: 'custom',
   });
+
+  // Policy generation state
+  const [generateForm, setGenerateForm] = useState<GenerateForm>({
+    topic: '', sector: 'Finance', risk_level: 'Medium', framework: 'ISO_27001', event_type: '',
+  });
+  const [isGeneratingPolicy, setIsGeneratingPolicy] = useState(false);
+  const [generatedPolicy, setGeneratedPolicy] = useState<GeneratedPolicy | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateSuccess, setGenerateSuccess] = useState<string | null>(null);
 
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -301,6 +328,36 @@ export default function App() {
       await fetchPolicyDocs();
     } catch {
       // ignore
+    }
+  };
+
+  const handleGeneratePolicy = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!generateForm.topic.trim()) return;
+    setIsGeneratingPolicy(true);
+    setGeneratedPolicy(null);
+    setGenerateError(null);
+    setGenerateSuccess(null);
+    try {
+      const res = await fetch(`${API_URL}/policies/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generateForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setGenerateError(data.error || 'Generation failed');
+      } else {
+        setGeneratedPolicy(data.policy);
+        setGenerateSuccess(
+          `"${data.name}" generated — ${data.chunk_count} chunks indexed (${data.chroma_status}).`
+        );
+        await fetchPolicyDocs();
+      }
+    } catch {
+      setGenerateError('Connection error — ensure the backend is running on port 5000.');
+    } finally {
+      setIsGeneratingPolicy(false);
     }
   };
 
@@ -729,6 +786,154 @@ export default function App() {
           {activeTab === 'masters' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-8">
               <h2 className="text-3xl font-bold text-slate-800 tracking-tight">Configuration & Repository</h2>
+
+              {/* Generate Policy with AI */}
+              <div className="enterprise-panel border-t-4 border-t-violet-500">
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center text-violet-600">
+                    <Wand2 size={18} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-900 tracking-tight">Generate Policy with AI</h3>
+                    <p className="text-xs text-slate-500">Describe a topic — the LLM writes a full governance policy, indexes it into ChromaDB, and adds it to your document library.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleGeneratePolicy} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Policy Topic *</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Vendor access control for financial systems"
+                      value={generateForm.topic}
+                      onChange={(e) => setGenerateForm({ ...generateForm, topic: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sector</label>
+                      <select className="input" value={generateForm.sector} onChange={(e) => setGenerateForm({ ...generateForm, sector: e.target.value })}>
+                        <option>Finance</option>
+                        <option>Technology</option>
+                        <option>Security</option>
+                        <option>HR</option>
+                        <option>Legal</option>
+                        <option>General</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Risk Level</label>
+                      <select className="input" value={generateForm.risk_level} onChange={(e) => setGenerateForm({ ...generateForm, risk_level: e.target.value })}>
+                        <option>Low</option>
+                        <option>Medium</option>
+                        <option>High</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Framework</label>
+                      <select className="input" value={generateForm.framework} onChange={(e) => setGenerateForm({ ...generateForm, framework: e.target.value })}>
+                        <option value="ISO_27001">ISO 27001</option>
+                        <option value="NIST_AI_RMF">NIST AI RMF</option>
+                        <option value="GDPR">GDPR</option>
+                        <option value="OECD_AI">OECD AI</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Event Type (optional)</label>
+                      <select className="input" value={generateForm.event_type} onChange={(e) => setGenerateForm({ ...generateForm, event_type: e.target.value })}>
+                        <option value="">Any</option>
+                        <option value="financial_txn">Financial Transaction</option>
+                        <option value="security_alert">Security Alert</option>
+                        <option value="policy_upload">Policy Upload</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex-1">
+                      {generateSuccess && (
+                        <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-md">
+                          <FileCheck size={14} /> {generateSuccess}
+                        </div>
+                      )}
+                      {generateError && (
+                        <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 px-3 py-2 rounded-md">
+                          <XCircle size={14} /> {generateError}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isGeneratingPolicy || !generateForm.topic.trim()}
+                      className="btn-primary ml-4 !bg-violet-600 hover:!bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Wand2 size={14} />
+                        {isGeneratingPolicy ? 'Generating...' : 'Generate Policy'}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Generated policy preview */}
+                {generatedPolicy && (
+                  <div className="mt-6 border-t border-slate-100 pt-5 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles size={15} className="text-violet-500" />
+                      <h4 className="font-bold text-slate-800 tracking-tight">{generatedPolicy.name}</h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Purpose</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{generatedPolicy.purpose}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Scope</p>
+                        <p className="text-sm text-slate-700 leading-relaxed">{generatedPolicy.scope}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-slate-200">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Policy Statements</p>
+                      <ol className="space-y-2">
+                        {generatedPolicy.policy_statements.map((s, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-slate-700">
+                            <span className="w-5 h-5 rounded bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{i + 1}</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4 border border-slate-200">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Controls</p>
+                      <ul className="space-y-2">
+                        {generatedPolicy.controls.map((c, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-slate-700">
+                            <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                            {c}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-rose-50 rounded-lg p-4 border border-rose-100">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-rose-400 mb-1.5">Enforcement</p>
+                        <p className="text-sm text-rose-800 leading-relaxed">{generatedPolicy.enforcement}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-blue-400 mb-1.5">Review Cycle</p>
+                        <p className="text-sm text-blue-800 leading-relaxed">{generatedPolicy.review_cycle}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Upload Policy Document */}
               <div className="enterprise-panel border-t-4 border-t-indigo-500">
