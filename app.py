@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 import json
 import os
+import re as _re
 import threading
 import time
+import traceback
 import uuid
 from typing import Any, Dict, List, Tuple
 
@@ -680,54 +682,33 @@ def discover_frameworks():
     existing = db.list_frameworks()
     existing_ids = {f["framework_id"] for f in existing}
 
-    prompt = f"""You are a world-class GRC expert with comprehensive knowledge of all global regulatory frameworks, standards, and regulations.
-
-Policy Topic: {topic}
-Industry Sector: {sector}
-Country / Region: {country or "Global"}
-
-Task: Identify the 6-8 most relevant compliance frameworks, regulations, and standards that apply to this specific policy topic.
-Include both major international frameworks (ISO, NIST, GDPR) AND sector-specific or region-specific ones that are directly applicable to this exact topic and region.
-
-For each framework generate:
-- A machine-readable ID in UPPER_SNAKE_CASE (e.g. ISO_27001, GDPR, HIPAA, PCI_DSS, DPDP_INDIA, EU_AI_ACT)
-- Full official name
-- Version or year
-- Region of applicability (e.g. Global, EU, USA, India, UK)
-- Category (e.g. Data Privacy, AI Governance, Cybersecurity, Financial Services, Healthcare)
-- 1-2 sentence description
-- Name of the issuing official body
-- Official authoritative URL (must be a real, well-known URL for this standard)
-- 3-5 key controls/requirements with IDs, titles, and keyword tags
-
-Return ONLY valid JSON matching this exact structure:
-{{
-  "frameworks": [
-    {{
-      "framework_id": "<UPPER_SNAKE_CASE>",
-      "name": "<Full Official Name>",
-      "version": "<version or year>",
-      "region": "<region>",
-      "category": "<category>",
-      "description": "<1-2 sentence description>",
-      "official_body": "<issuing organization>",
-      "trusted_url": "<authoritative URL>",
-      "source": "discovered",
-      "controls": [
-        {{
-          "control_id": "<FWID-001>",
-          "title": "<control title>",
-          "category": "<control category>",
-          "description": "<what this control requires>",
-          "severity": "<High|Medium|Low>",
-          "keywords": ["<kw1>", "<kw2>", "<kw3>"]
-        }}
-      ]
-    }}
-  ],
-  "suggested_framework_ids": ["<ID1>", "<ID2>", "<ID3>"],
-  "search_rationale": "<one sentence explaining framework selection>"
-}}"""
+    prompt = (
+        "You are a GRC expert. Identify the 5 most relevant compliance frameworks for:\n"
+        f"Topic: {topic}\nSector: {sector}\nRegion: {country or 'Global'}\n\n"
+        "Include major international standards (ISO, NIST, GDPR) AND any sector/region-specific regulations.\n\n"
+        "Return ONLY a valid JSON object with this structure (no markdown, no text outside the JSON):\n"
+        "{\n"
+        '  "frameworks": [\n'
+        "    {\n"
+        '      "framework_id": "UPPER_SNAKE_ID",\n'
+        '      "name": "Full Official Name",\n'
+        '      "version": "year or version",\n'
+        '      "region": "Global or specific region",\n'
+        '      "category": "Data Privacy / AI Governance / Cybersecurity / etc",\n'
+        '      "description": "One sentence description.",\n'
+        '      "official_body": "Issuing organization name",\n'
+        '      "trusted_url": "https://official-url.org",\n'
+        '      "source": "discovered",\n'
+        '      "controls": [\n'
+        '        {"control_id": "FW-001", "title": "Control title", "category": "category", '
+        '"description": "What it requires.", "severity": "High", "keywords": ["kw1", "kw2"]}\n'
+        "      ]\n"
+        "    }\n"
+        "  ],\n"
+        '  "suggested_framework_ids": ["ID1", "ID2", "ID3"],\n'
+        '  "search_rationale": "One sentence explaining why these frameworks were selected."\n'
+        "}"
+    )
 
     try:
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
@@ -737,14 +718,25 @@ Return ONLY valid JSON matching this exact structure:
             HumanMessage(content=prompt),
         ])
         content = response.content.strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-            content = content.strip()
-        result = json.loads(content)
+        print(f"[discover_frameworks] raw LLM response ({len(content)} chars): {content[:200]}")
     except Exception as e:
-        return jsonify({"error": f"Framework discovery failed: {e}"}), 500
+        print(f"[discover_frameworks] LLM call failed: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": f"LLM call failed: {e}"}), 500
+
+    # Robust JSON extraction — strip markdown fences, then find the outermost {...}
+    try:
+        # Strip ```json ... ``` fences
+        content = _re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=_re.MULTILINE)
+        content = _re.sub(r"```\s*$", "", content.strip(), flags=_re.MULTILINE)
+        content = content.strip()
+        # Find outermost JSON object in case of leading/trailing text
+        m = _re.search(r"\{.*\}", content, _re.DOTALL)
+        if not m:
+            raise ValueError(f"No JSON object found in LLM response: {content[:300]}")
+        result = json.loads(m.group(0))
+    except Exception as e:
+        print(f"[discover_frameworks] JSON parse failed: {e}\nRaw content: {content[:500]}")
+        return jsonify({"error": f"JSON parsing failed: {e}"}), 500
 
     # Upsert new frameworks into MongoDB
     new_count = 0
