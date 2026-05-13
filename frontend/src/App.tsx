@@ -1000,32 +1000,60 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sector</label>
-                      <select className="input" value={generateForm.sector} onChange={(e) => setGenerateForm({ ...generateForm, sector: e.target.value })}>
-                        <option>Finance</option>
-                        <option>Technology</option>
-                        <option>Security</option>
-                        <option>HR</option>
-                        <option>Legal</option>
-                        <option>General</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="gen-sectors"
+                        placeholder="e.g. Finance"
+                        value={generateForm.sector}
+                        onChange={(e) => setGenerateForm({ ...generateForm, sector: e.target.value })}
+                      />
+                      <datalist id="gen-sectors">
+                        <option value="Finance" />
+                        <option value="Technology" />
+                        <option value="Security" />
+                        <option value="HR" />
+                        <option value="Legal" />
+                        <option value="Healthcare" />
+                        <option value="Education" />
+                        <option value="Government" />
+                        <option value="General" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Risk Level</label>
-                      <select className="input" value={generateForm.risk_level} onChange={(e) => setGenerateForm({ ...generateForm, risk_level: e.target.value })}>
-                        <option>Low</option>
-                        <option>Medium</option>
-                        <option>High</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="gen-risk"
+                        placeholder="e.g. Medium"
+                        value={generateForm.risk_level}
+                        onChange={(e) => setGenerateForm({ ...generateForm, risk_level: e.target.value })}
+                      />
+                      <datalist id="gen-risk">
+                        <option value="Low" />
+                        <option value="Medium" />
+                        <option value="High" />
+                        <option value="Critical" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Framework</label>
-                      <select className="input" value={generateForm.framework} onChange={(e) => setGenerateForm({ ...generateForm, framework: e.target.value })}>
-                        <option value="ISO_27001">ISO 27001</option>
-                        <option value="NIST_AI_RMF">NIST AI RMF</option>
-                        <option value="GDPR">GDPR</option>
-                        <option value="OECD_AI">OECD AI</option>
-                        <option value="custom">Custom</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="gen-framework"
+                        placeholder="e.g. ISO 27001"
+                        value={generateForm.framework}
+                        onChange={(e) => setGenerateForm({ ...generateForm, framework: e.target.value })}
+                      />
+                      <datalist id="gen-framework">
+                        <option value="ISO_27001" />
+                        <option value="NIST_AI_RMF" />
+                        <option value="GDPR" />
+                        <option value="OECD_AI" />
+                        <option value="SOC2" />
+                        <option value="HIPAA" />
+                        <option value="PCI_DSS" />
+                        <option value="custom" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Event Type (optional)</label>
@@ -1167,31 +1195,60 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Sector</label>
-                      <select className="input" value={uploadForm.sector} onChange={(e) => setUploadForm({ ...uploadForm, sector: e.target.value })}>
-                        <option>Finance</option>
-                        <option>Technology</option>
-                        <option>Security</option>
-                        <option>HR</option>
-                        <option>Legal</option>
-                        <option>General</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="upload-sectors"
+                        placeholder="e.g. Finance"
+                        value={uploadForm.sector}
+                        onChange={(e) => setUploadForm({ ...uploadForm, sector: e.target.value })}
+                      />
+                      <datalist id="upload-sectors">
+                        <option value="Finance" />
+                        <option value="Technology" />
+                        <option value="Security" />
+                        <option value="HR" />
+                        <option value="Legal" />
+                        <option value="Healthcare" />
+                        <option value="Education" />
+                        <option value="Government" />
+                        <option value="General" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Risk Level</label>
-                      <select className="input" value={uploadForm.risk} onChange={(e) => setUploadForm({ ...uploadForm, risk: e.target.value })}>
-                        <option>Low</option>
-                        <option>Medium</option>
-                        <option>High</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="upload-risk"
+                        placeholder="e.g. Medium"
+                        value={uploadForm.risk}
+                        onChange={(e) => setUploadForm({ ...uploadForm, risk: e.target.value })}
+                      />
+                      <datalist id="upload-risk">
+                        <option value="Low" />
+                        <option value="Medium" />
+                        <option value="High" />
+                        <option value="Critical" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Framework</label>
-                      <select className="input" value={uploadForm.framework} onChange={(e) => setUploadForm({ ...uploadForm, framework: e.target.value })}>
-                        <option value="custom">Custom</option>
-                        <option value="ISO_27001">ISO 27001</option>
-                        <option value="NIST_CSF">NIST CSF</option>
-                        <option value="SOC2">SOC 2</option>
-                      </select>
+                      <input
+                        className="input"
+                        list="upload-framework"
+                        placeholder="e.g. ISO 27001"
+                        value={uploadForm.framework}
+                        onChange={(e) => setUploadForm({ ...uploadForm, framework: e.target.value })}
+                      />
+                      <datalist id="upload-framework">
+                        <option value="custom" />
+                        <option value="ISO_27001" />
+                        <option value="NIST_CSF" />
+                        <option value="SOC2" />
+                        <option value="NIST_AI_RMF" />
+                        <option value="GDPR" />
+                        <option value="HIPAA" />
+                        <option value="PCI_DSS" />
+                      </datalist>
                     </div>
                   </div>
 
