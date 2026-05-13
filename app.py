@@ -653,8 +653,121 @@ def get_compliance_framework(framework_id: str):
     """Return a full framework with its controls array."""
     framework = db.get_framework(framework_id)
     if not framework:
-        return jsonify({"error": f"Framework '{framework_id}' not found. Available: ISO_27001, NIST_AI_RMF, GDPR, OECD_AI"}), 404
+        return jsonify({"error": f"Framework '{framework_id}' not found"}), 404
     return jsonify(framework)
+
+
+@app.route("/api/compliance/frameworks/discover", methods=["POST"])
+def discover_frameworks():
+    """
+    Use the LLM to discover relevant compliance frameworks for a topic/sector/country.
+    New frameworks are upserted into MongoDB for future reuse.
+
+    Body: { topic, sector, country }
+    Returns: { frameworks, suggested_framework_ids, search_rationale, new_frameworks_added }
+    """
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available — check GROQ_API_KEY"}), 503
+
+    body = request.get_json(silent=True) or {}
+    topic = (body.get("topic") or "").strip()
+    sector = (body.get("sector") or "General").strip()
+    country = (body.get("country") or "").strip()
+
+    if not topic:
+        return jsonify({"error": "topic is required"}), 400
+
+    existing = db.list_frameworks()
+    existing_ids = {f["framework_id"] for f in existing}
+
+    prompt = f"""You are a world-class GRC expert with comprehensive knowledge of all global regulatory frameworks, standards, and regulations.
+
+Policy Topic: {topic}
+Industry Sector: {sector}
+Country / Region: {country or "Global"}
+
+Task: Identify the 6-8 most relevant compliance frameworks, regulations, and standards that apply to this specific policy topic.
+Include both major international frameworks (ISO, NIST, GDPR) AND sector-specific or region-specific ones that are directly applicable to this exact topic and region.
+
+For each framework generate:
+- A machine-readable ID in UPPER_SNAKE_CASE (e.g. ISO_27001, GDPR, HIPAA, PCI_DSS, DPDP_INDIA, EU_AI_ACT)
+- Full official name
+- Version or year
+- Region of applicability (e.g. Global, EU, USA, India, UK)
+- Category (e.g. Data Privacy, AI Governance, Cybersecurity, Financial Services, Healthcare)
+- 1-2 sentence description
+- Name of the issuing official body
+- Official authoritative URL (must be a real, well-known URL for this standard)
+- 3-5 key controls/requirements with IDs, titles, and keyword tags
+
+Return ONLY valid JSON matching this exact structure:
+{{
+  "frameworks": [
+    {{
+      "framework_id": "<UPPER_SNAKE_CASE>",
+      "name": "<Full Official Name>",
+      "version": "<version or year>",
+      "region": "<region>",
+      "category": "<category>",
+      "description": "<1-2 sentence description>",
+      "official_body": "<issuing organization>",
+      "trusted_url": "<authoritative URL>",
+      "source": "discovered",
+      "controls": [
+        {{
+          "control_id": "<FWID-001>",
+          "title": "<control title>",
+          "category": "<control category>",
+          "description": "<what this control requires>",
+          "severity": "<High|Medium|Low>",
+          "keywords": ["<kw1>", "<kw2>", "<kw3>"]
+        }}
+      ]
+    }}
+  ],
+  "suggested_framework_ids": ["<ID1>", "<ID2>", "<ID3>"],
+  "search_rationale": "<one sentence explaining framework selection>"
+}}"""
+
+    try:
+        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        llm = ChatGroq(model_name=model_name)
+        response = llm.invoke([
+            SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
+            HumanMessage(content=prompt),
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.strip()
+        result = json.loads(content)
+    except Exception as e:
+        return jsonify({"error": f"Framework discovery failed: {e}"}), 500
+
+    # Upsert new frameworks into MongoDB
+    new_count = 0
+    for fw in result.get("frameworks", []):
+        fw_id = (fw.get("framework_id") or "").strip()
+        if not fw_id:
+            continue
+        if fw_id not in existing_ids:
+            inserted = db.upsert_framework(fw)
+            if inserted:
+                new_count += 1
+                existing_ids.add(fw_id)
+
+    print(
+        f"[discover_frameworks] topic={topic!r} sector={sector!r} country={country!r} "
+        f"| found={len(result.get('frameworks', []))} | new={new_count}"
+    )
+    return jsonify({
+        "frameworks": result.get("frameworks", []),
+        "suggested_framework_ids": result.get("suggested_framework_ids", []),
+        "search_rationale": result.get("search_rationale", ""),
+        "new_frameworks_added": new_count,
+    })
 
 
 @app.route("/api/compliance/gap-analysis", methods=["POST"])

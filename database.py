@@ -475,11 +475,28 @@ class MongoGovDB:
                 "framework_id": 1,
                 "name": 1,
                 "version": 1,
+                "region": 1,
+                "category": 1,
                 "description": 1,
+                "official_body": 1,
+                "trusted_url": 1,
+                "source": 1,
                 "control_count": {"$size": {"$ifNull": ["$controls", []]}},
             }}
         ]
         return list(self.frameworks_col.aggregate(pipeline))
+
+    def upsert_framework(self, framework: Dict[str, Any]) -> bool:
+        """Insert a framework if it doesn't exist yet. Returns True if inserted."""
+        fw_id = framework.get("framework_id", "").strip()
+        if not fw_id:
+            return False
+        result = self.frameworks_col.update_one(
+            {"framework_id": fw_id},
+            {"$setOnInsert": framework},
+            upsert=True,
+        )
+        return result.upserted_id is not None
 
     def get_framework(self, framework_id: str) -> Optional[Dict[str, Any]]:
         """Return a full framework document including controls array."""
