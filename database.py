@@ -878,6 +878,18 @@ class MongoGovDB:
     def get_risk_library_items_by_ids(self, risk_ids: List[str]) -> List[Dict[str, Any]]:
         return [self._strip_id(d) for d in self.risk_library_col.find({"risk_id": {"$in": risk_ids}})]
 
+    def upsert_risk_library_item(self, risk: Dict[str, Any]) -> bool:
+        """Insert a risk library item if it doesn't exist yet. Returns True if inserted."""
+        risk_id = risk.get("risk_id", "").strip()
+        if not risk_id:
+            return False
+        result = self.risk_library_col.update_one(
+            {"risk_id": risk_id},
+            {"$setOnInsert": risk},
+            upsert=True,
+        )
+        return result.upserted_id is not None
+
     # ------------------------------------------------------------------
     # Policy Packs CRUD
     # ------------------------------------------------------------------

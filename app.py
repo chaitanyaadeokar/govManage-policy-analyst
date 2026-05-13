@@ -1486,6 +1486,72 @@ def get_risk_library():
     return jsonify(risks)
 
 
+@app.route("/api/risk/library/discover", methods=["POST"])
+def discover_risk():
+    """Research and add a new risk library item from a plain-text description."""
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available"}), 503
+
+    body = request.get_json(silent=True) or {}
+    risk_name = (body.get("risk_name") or "").strip()
+    sector = (body.get("sector") or "General").strip()
+
+    if not risk_name:
+        return jsonify({"error": "risk_name is required"}), 400
+
+    existing = db.list_risk_library()
+    risk_nums: list = []
+    for r in existing:
+        rid = r.get("risk_id", "")
+        if rid.startswith("RISK-"):
+            try:
+                risk_nums.append(int(rid.split("-")[1]))
+            except ValueError:
+                pass
+    next_num = max(risk_nums) + 1 if risk_nums else 100
+    new_risk_id = f"RISK-{next_num:03d}"
+
+    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    prompt = (
+        "You are a GRC expert. Create a structured risk library entry.\n"
+        f"Risk description: {risk_name}\nSector: {sector}\n\n"
+        "Return ONLY a valid JSON object — no markdown, no text outside the JSON:\n"
+        "{\n"
+        f'  "risk_id": "{new_risk_id}",\n'
+        '  "risk_type": "Regulatory|Cyber|Operational|Financial|Privacy|Reputational|Supply Chain|Ethical|Geopolitical",\n'
+        '  "title": "Short descriptive title (max 8 words)",\n'
+        '  "description": "Two-sentence description of the risk.",\n'
+        '  "severity": "High|Medium|Low",\n'
+        '  "category": "Category name",\n'
+        '  "mitigation": "Concrete mitigation strategy.",\n'
+        '  "affected_domains": ["Domain1", "Domain2"],\n'
+        '  "compliance_links": ["FRAMEWORK_ID"],\n'
+        '  "source": "discovered"\n'
+        "}"
+    )
+
+    try:
+        llm = ChatGroq(model_name=model_name, temperature=0.3)
+        response = llm.invoke(prompt)
+        content = response.content.strip()
+    except Exception as exc:
+        print(f"[discover_risk] LLM error: {exc}")
+        return jsonify({"error": f"LLM error: {str(exc)}"}), 500
+
+    try:
+        match = _re.search(r"\{.*\}", content, _re.DOTALL)
+        if not match:
+            raise ValueError("No JSON object found in LLM response")
+        risk_data = json.loads(match.group())
+        risk_data["risk_id"] = new_risk_id
+        inserted = db.upsert_risk_library_item(risk_data)
+        return jsonify({"risk": risk_data, "inserted": inserted})
+    except Exception as exc:
+        print(f"[discover_risk] Parse error: {exc}")
+        print(f"[discover_risk] Raw: {content[:300]}")
+        return jsonify({"error": f"Parse error: {str(exc)}", "raw": content[:300]}), 500
+
+
 # ---------------------------------------------------------------------------
 # Policy Packs — Full 3-Agent Generation
 # ---------------------------------------------------------------------------
