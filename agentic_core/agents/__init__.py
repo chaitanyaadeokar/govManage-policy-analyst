@@ -1,0 +1,15 @@
+"""
+Specialized agentic agents for governance system.
+"""
+
+from agentic_core.agents.policy_agent import PolicyAnalystAgent
+from agentic_core.agents.compliance_agent import ComplianceAgent
+from agentic_core.agents.risk_agent import RiskAssessmentAgent
+from agentic_core.agents.decision_agent import DecisionEngineAgent
+
+__all__ = [
+    "PolicyAnalystAgent",
+    "ComplianceAgent",
+    "RiskAssessmentAgent",
+    "DecisionEngineAgent",
+]

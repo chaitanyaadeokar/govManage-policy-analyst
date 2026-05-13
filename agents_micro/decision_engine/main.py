@@ -12,6 +12,13 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 
 # Absolute paths
+FILE_PATH = os.path.abspath(__file__)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+
+from database import db
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
 INBOX_DIR = os.path.join(SHARED_QUEUES, "3_decision")
@@ -26,8 +33,12 @@ model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 llm = ChatGroq(model_name=model_name)
 
 def synthesize_decision(event_id, policy_res, compliance_res, risk_res):
+    schema_context = db.get_schema_context()
+
     prompt = f"""
     You are the final Executive Decision Engine for the Governance API.
+    {schema_context}
+    
     You have received 3 distinct evaluations for Event ID {event_id}.
     
     1. POLICY ANALYST: Conflict: {policy_res.get('policy_conflict')} | Score: {policy_res.get('policy_analysis_score')}

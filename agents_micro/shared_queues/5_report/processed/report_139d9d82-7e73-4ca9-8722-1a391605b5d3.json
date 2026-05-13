@@ -1,0 +1,11 @@
+{
+    "event_id": "139d9d82-7e73-4ca9-8722-1a391605b5d3",
+    "risk_level": "Low",
+    "compliance_violation": null,
+    "audit_trace": [
+        "Policy Output: Conflict=False",
+        "Compliance Output: Auth=False",
+        "Decision Engine: Compliance check failed (Authorized=False) due to insufficient user role/clearance data, which overrides the low risk assessment and lack of policy conflict, mandating an automatic block."
+    ],
+    "final_action": "Auto Blocked"
+}

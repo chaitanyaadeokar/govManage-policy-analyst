@@ -1,4 +1,56 @@
+# Environment files
 .env
+.env.production
+.env.staging
+
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Database
 mongo-data/
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# Shared memory persistence
+agents_micro/shared_memory.json
+
+# Backup files
+*.bak
+*.backup
+backup/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution
+dist/
+build/
+*.egg-info/

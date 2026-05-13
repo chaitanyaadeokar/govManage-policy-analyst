@@ -1,0 +1,10 @@
+{
+    "event_id": "139d9d82-7e73-4ca9-8722-1a391605b5d3",
+    "payload": {
+        "user_id": "E101",
+        "amount": 200.0,
+        "description": "Payment to an individual entity for its database service"
+    },
+    "tvi_score": 0.06,
+    "risk_level": "Low"
+}
