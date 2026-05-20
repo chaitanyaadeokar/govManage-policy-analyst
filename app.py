@@ -65,27 +65,60 @@ CORS(app)
 # ---------------------------------------------------------------------------
 
 def _clean_text_for_pdf(val: Any) -> Any:
-    """Recursively clean common Unicode characters not supported by standard PDF fonts."""
+    """Recursively clean Unicode characters not supported by reportlab's built-in fonts.
+
+    Reportlab's standard fonts (Helvetica, Times-Roman, Courier) only support
+    the Latin-1 / CP1252 character set (code points 0-255). Any character outside
+    this range will be silently dropped or rendered as a garbled glyph by the
+    browser's PDF renderer (Chrome, Firefox, Edge all behave differently).
+    We therefore:
+      1. Replace the most common fancy Unicode chars with ASCII equivalents.
+      2. Encode the final string to latin-1, dropping anything that still can't fit.
+    """
     if isinstance(val, str):
         replacements = {
-            '\u2011': '-',  # Non-breaking hyphen
-            '\u2012': '-',  # Figure dash
-            '\u2013': '-',  # En dash
-            '\u2014': '-',  # Em dash
-            '\u2212': '-',  # Minus sign
-            '\u2018': "'",  # Left single quotation mark
-            '\u2019': "'",  # Right single quotation mark
-            '\u201a': "'",  # Single low-9 quotation mark
-            '\u201b': "'",  # Single high-reversed-9 quotation mark
-            '\u201c': '"',  # Left double quotation mark
-            '\u201d': '"',  # Right double quotation mark
-            '\u201e': '"',  # Double low-9 quotation mark
-            '\u201f': '"',  # Double high-reversed-9 quotation mark
-            '\u00a0': ' ',  # Non-breaking space
-            '\u2022': '•',  # Bullet point
+            # Dashes
+            '\u2011': '-',   # Non-breaking hyphen
+            '\u2012': '-',   # Figure dash
+            '\u2013': '-',   # En dash
+            '\u2014': '-',   # Em dash
+            '\u2212': '-',   # Minus sign
+            # Quotes
+            '\u2018': "'",   # Left single quotation mark
+            '\u2019': "'",   # Right single quotation mark
+            '\u201a': "'",   # Single low-9 quotation mark
+            '\u201b': "'",   # Single high-reversed-9 quotation mark
+            '\u201c': '"',   # Left double quotation mark
+            '\u201d': '"',   # Right double quotation mark
+            '\u201e': '"',   # Double low-9 quotation mark
+            '\u201f': '"',   # Double high-reversed-9 quotation mark
+            # Spaces
+            '\u00a0': ' ',   # Non-breaking space
+            '\u202f': ' ',   # Narrow no-break space
+            '\u2009': ' ',   # Thin space
+            # Bullets / symbols  (U+2022 is NOT in Latin-1, use ASCII '*')
+            '\u2022': '*',   # Bullet point  -> asterisk (Latin-1 safe)
+            '\u2023': '>',   # Triangular bullet
+            '\u2043': '-',   # Hyphen bullet
+            '\u25cf': '*',   # Black circle
+            '\u25e6': 'o',   # White bullet
+            # Ellipsis
+            '\u2026': '...',  # Horizontal ellipsis
+            # Misc common symbols
+            '\u00b7': '.',   # Middle dot
+            '\u2192': '->',  # Right arrow
+            '\u2190': '<-',  # Left arrow
+            '\u2713': 'v',   # Check mark
+            '\u2714': 'v',   # Heavy check mark
+            '\u2715': 'x',   # Multiplication x
+            '\u2716': 'x',   # Heavy multiplication x
         }
         for old, new in replacements.items():
             val = val.replace(old, new)
+        # Final safety net: drop anything still outside Latin-1 (0x00-0xFF)
+        # encode to latin-1 with 'replace' would put '?' for unknowns;
+        # using 'ignore' keeps the text readable without question-marks.
+        val = val.encode('latin-1', errors='ignore').decode('latin-1')
         return val
     elif isinstance(val, list):
         return [_clean_text_for_pdf(item) for item in val]
@@ -115,11 +148,69 @@ def _build_pdf_bytes(pack_doc: dict) -> bytes:
     EMERALD = rl_colors.HexColor('#10b981')
     AMBER   = rl_colors.HexColor('#f59e0b')
 
-    title_style = ParagraphStyle('Title', fontName='Helvetica-Bold', fontSize=18, textColor=rl_colors.HexColor('#1e293b'), spaceAfter=4)
-    sub_style   = ParagraphStyle('Sub',   fontName='Helvetica',      fontSize=9,  textColor=MUTED, spaceAfter=8)
-    h2_style    = ParagraphStyle('H2',    fontName='Helvetica-Bold', fontSize=12, textColor=INDIGO, spaceBefore=12, spaceAfter=4)
-    body_style  = ParagraphStyle('Body',  fontName='Helvetica',      fontSize=9.5,textColor=SLATE, spaceAfter=4, leading=14)
-    bullet_style= ParagraphStyle('Bullet',fontName='Helvetica',      fontSize=9.5,textColor=SLATE, spaceAfter=3, leading=13, leftIndent=12, bulletIndent=0)
+    # Define consistent styles with proper word wrapping
+    title_style = ParagraphStyle(
+        'Title', 
+        fontName='Helvetica-Bold', 
+        fontSize=18, 
+        textColor=rl_colors.HexColor('#1e293b'), 
+        spaceAfter=4,
+        wordWrap='CJK'
+    )
+    sub_style = ParagraphStyle(
+        'Sub', 
+        fontName='Helvetica', 
+        fontSize=9, 
+        textColor=MUTED, 
+        spaceAfter=8,
+        wordWrap='CJK'
+    )
+    h2_style = ParagraphStyle(
+        'H2', 
+        fontName='Helvetica-Bold', 
+        fontSize=12, 
+        textColor=INDIGO, 
+        spaceBefore=12, 
+        spaceAfter=4,
+        wordWrap='CJK'
+    )
+    body_style = ParagraphStyle(
+        'Body', 
+        fontName='Helvetica', 
+        fontSize=9.5, 
+        textColor=SLATE, 
+        spaceAfter=4, 
+        leading=14,
+        wordWrap='CJK'
+    )
+    bullet_style = ParagraphStyle(
+        'Bullet', 
+        fontName='Helvetica', 
+        fontSize=9.5, 
+        textColor=SLATE, 
+        spaceAfter=3, 
+        leading=13, 
+        leftIndent=12, 
+        bulletIndent=0,
+        wordWrap='CJK'
+    )
+    # Table cell style for consistent font in tables
+    table_cell_style = ParagraphStyle(
+        'TableCell',
+        fontName='Helvetica',
+        fontSize=8.5,
+        textColor=SLATE,
+        leading=11,
+        wordWrap='CJK'
+    )
+    table_header_style = ParagraphStyle(
+        'TableHeader',
+        fontName='Helvetica-Bold',
+        fontSize=9,
+        textColor=rl_colors.white,
+        leading=11,
+        wordWrap='CJK'
+    )
 
     policy = pack_doc.get('policy', {})
     story  = []
@@ -148,8 +239,17 @@ def _build_pdf_bytes(pack_doc: dict) -> bytes:
 
     # ── 4. PROCEDURES ────────────────────────────────────────────────────────
     story.append(Paragraph('4. Procedures', h2_style))
+    proc_title_style = ParagraphStyle(
+        'ProcTitle', 
+        fontName='Helvetica-Bold', 
+        fontSize=10, 
+        textColor=SLATE, 
+        spaceBefore=4, 
+        spaceAfter=2,
+        wordWrap='CJK'
+    )
     for proc in policy.get('procedures', []):
-        story.append(Paragraph(proc.get('title', ''), ParagraphStyle('ProcTitle', fontName='Helvetica-Bold', fontSize=10, textColor=SLATE, spaceBefore=4, spaceAfter=2)))
+        story.append(Paragraph(proc.get('title', ''), proc_title_style))
         for j, step in enumerate(proc.get('steps', []), 1):
             story.append(Paragraph(f'{j}. {step}', bullet_style))
     story.append(Spacer(1, 2*mm))
@@ -164,14 +264,20 @@ def _build_pdf_bytes(pack_doc: dict) -> bytes:
     gov = policy.get('governance_structure', [])
     if gov:
         story.append(Paragraph('7. Governance Structure', h2_style))
-        tdata = [['Role', 'Responsibility']] + [[g.get('role',''), g.get('responsibility','')] for g in gov]
+        # Wrap table cells in Paragraphs for proper text wrapping
+        tdata = [[Paragraph('Role', table_header_style), Paragraph('Responsibility', table_header_style)]]
+        for g in gov:
+            tdata.append([
+                Paragraph(g.get('role', ''), table_cell_style),
+                Paragraph(g.get('responsibility', ''), table_cell_style)
+            ])
         tbl = Table(tdata, colWidths=[55*mm, 115*mm])
         tbl.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), INDIGO), ('TEXTCOLOR', (0,0), (-1,0), rl_colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 9),
+            ('BACKGROUND', (0,0), (-1,0), INDIGO),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [rl_colors.white, rl_colors.HexColor('#f8fafc')]),
             ('GRID', (0,0), (-1,-1), 0.4, rl_colors.HexColor('#e2e8f0')),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 5),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('PADDING', (0,0), (-1,-1), 5),
         ]))
         story.append(tbl)
         story.append(Spacer(1, 4*mm))
@@ -180,15 +286,27 @@ def _build_pdf_bytes(pack_doc: dict) -> bytes:
     matrix = pack_doc.get('compliance_matrix', [])
     if matrix:
         story.append(Paragraph('8. Compliance Control Matrix', h2_style))
-        mdata = [['Framework', 'Control ID', 'Title', 'Coverage']] + \
-                [[c.get('framework_id',''), c.get('control_id',''), c.get('title',''), c.get('coverage','')] for c in matrix]
+        # Wrap table cells in Paragraphs for proper text wrapping
+        mdata = [[
+            Paragraph('Framework', table_header_style),
+            Paragraph('Control ID', table_header_style),
+            Paragraph('Title', table_header_style),
+            Paragraph('Coverage', table_header_style)
+        ]]
+        for c in matrix:
+            mdata.append([
+                Paragraph(c.get('framework_id', ''), table_cell_style),
+                Paragraph(c.get('control_id', ''), table_cell_style),
+                Paragraph(c.get('title', ''), table_cell_style),
+                Paragraph(c.get('coverage', ''), table_cell_style)
+            ])
         mtbl = Table(mdata, colWidths=[32*mm, 22*mm, 88*mm, 28*mm])
         mtbl.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), EMERALD), ('TEXTCOLOR', (0,0), (-1,0), rl_colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 8.5),
+            ('BACKGROUND', (0,0), (-1,0), EMERALD),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [rl_colors.white, rl_colors.HexColor('#f0fdf4')]),
             ('GRID', (0,0), (-1,-1), 0.4, rl_colors.HexColor('#e2e8f0')),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 4),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('PADDING', (0,0), (-1,-1), 5),
         ]))
         story.append(mtbl)
         story.append(Spacer(1, 4*mm))
@@ -197,15 +315,27 @@ def _build_pdf_bytes(pack_doc: dict) -> bytes:
     risks = pack_doc.get('risk_mapping', [])
     if risks:
         story.append(Paragraph('9. Risk Mitigation Mapping', h2_style))
-        rdata = [['Risk ID', 'Risk Type', 'Mitigation', 'Severity']] + \
-                [[r.get('risk_id',''), r.get('risk_type',''), r.get('mitigation',''), r.get('severity','')] for r in risks]
+        # Wrap table cells in Paragraphs for proper text wrapping
+        rdata = [[
+            Paragraph('Risk ID', table_header_style),
+            Paragraph('Risk Type', table_header_style),
+            Paragraph('Mitigation', table_header_style),
+            Paragraph('Severity', table_header_style)
+        ]]
+        for r in risks:
+            rdata.append([
+                Paragraph(r.get('risk_id', ''), table_cell_style),
+                Paragraph(r.get('risk_type', ''), table_cell_style),
+                Paragraph(r.get('mitigation', ''), table_cell_style),
+                Paragraph(r.get('severity', ''), table_cell_style)
+            ])
         rtbl = Table(rdata, colWidths=[22*mm, 28*mm, 98*mm, 22*mm])
         rtbl.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), AMBER), ('TEXTCOLOR', (0,0), (-1,0), rl_colors.white),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'), ('FONTSIZE', (0,0), (-1,-1), 8.5),
+            ('BACKGROUND', (0,0), (-1,0), AMBER),
             ('ROWBACKGROUNDS', (0,1), (-1,-1), [rl_colors.white, rl_colors.HexColor('#fffbeb')]),
             ('GRID', (0,0), (-1,-1), 0.4, rl_colors.HexColor('#e2e8f0')),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'), ('PADDING', (0,0), (-1,-1), 4),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('PADDING', (0,0), (-1,-1), 5),
         ]))
         story.append(rtbl)
 
@@ -2097,20 +2227,28 @@ def delete_policy_pack(pack_id: str):
 @app.route("/api/policy-packs/<pack_id>/pdf", methods=["GET"])
 def get_policy_pack_pdf(pack_id: str):
     """
-    Serve the stored PDF for a policy pack as an inline application/pdf response.
-    If the pack was created before PDF storage was added, regenerate it on the fly.
+    Serve the policy pack PDF using the professional ReportLab layout
+    (dark header band, KPI strip, justified body text, page footer).
+    Always regenerates live from the stored document so any layout
+    improvements are picked up automatically on the next open/download.
     """
     from flask import Response
     pack = db.get_policy_pack(pack_id)
     if not pack:
         return jsonify({"error": "Policy pack not found"}), 404
 
-    pdf_b64 = pack.get("pdf_base64", "")
-    if pdf_b64:
-        pdf_bytes = base64.b64decode(pdf_b64)
-    else:
-        # Regenerate for older packs that pre-date PDF storage
+    # Primary: use the professional layout from report_pdf.py
+    pdf_bytes = b""
+    try:
+        from report_pdf import build_policy_pack_pdf
+        pdf_bytes = build_policy_pack_pdf(pack)
+    except Exception as _pdf_err:
+        print(f"[policy-pdf] report_pdf failed ({_pdf_err}), falling back to _build_pdf_bytes")
         pdf_bytes = _build_pdf_bytes(pack)
+
+    if not pdf_bytes and pack.get("pdf_base64"):
+        # Fallback: serve cached blob only if live generation fails (e.g. reportlab missing)
+        pdf_bytes = base64.b64decode(pack["pdf_base64"])
 
     if not pdf_bytes:
         return jsonify({"error": "PDF generation unavailable (reportlab not installed)"}), 503
@@ -2120,15 +2258,116 @@ def get_policy_pack_pdf(pack_id: str):
         pdf_bytes,
         mimetype="application/pdf",
         headers={
-            "Content-Disposition": f"inline; filename={filename}",
+            # RFC 6266: filename must be quoted; use filename* for non-ASCII safety
+            "Content-Disposition": f'inline; filename="{filename}"; filename*=UTF-8\'\'{filename}',
             "Content-Length": str(len(pdf_bytes)),
+            # Prevent browsers from sniffing the content type and misinterpreting encoding
+            "X-Content-Type-Options": "nosniff",
+            # Allow browsers to cache the PDF — avoids re-fetching on every open
+            "Cache-Control": "private, max-age=3600",
         },
     )
 
 
 # ---------------------------------------------------------------------------
-# Compliance & Risk Reports
+# Email / Notification Routes
 # ---------------------------------------------------------------------------
+
+@app.route("/api/email/status", methods=["GET"])
+def email_status():
+    """
+    Return current SMTP configuration status and scheduler state.
+    Used by the EmailSettings frontend component on load.
+    """
+    from email_service import get_smtp_config, is_configured, get_default_recipients
+    from scheduler import get_scheduler_status
+
+    cfg = get_smtp_config()
+    sched = get_scheduler_status()
+
+    # Fetch the most recent dispatch log entry as last_dispatch
+    try:
+        last_log = db.db["email_dispatch_log"].find_one(
+            {}, {"_id": 0}, sort=[("triggered_at", -1)]
+        ) or {}
+    except Exception:
+        last_log = {}
+
+    return jsonify({
+        "configured": is_configured(),
+        "smtp_host": cfg["host"],
+        "smtp_port": cfg["port"],
+        "smtp_user": cfg["user"],
+        "from_addr": cfg["from_addr"],
+        "use_tls": cfg["use_tls"],
+        "default_recipients": get_default_recipients(),
+        "scheduler": sched,
+        "last_dispatch": last_log,
+    })
+
+
+@app.route("/api/email/dispatch-log", methods=["GET"])
+def email_dispatch_log():
+    """
+    Return the full email dispatch history (most recent first, capped at 50).
+    Used by the EmailSettings frontend component for the Dispatch History table.
+    """
+    try:
+        logs = list(
+            db.db["email_dispatch_log"]
+            .find({}, {"_id": 0})
+            .sort("triggered_at", -1)
+            .limit(50)
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+    return jsonify(logs)
+
+
+@app.route("/api/email/send-weekly-report", methods=["POST"])
+def send_weekly_report_now():
+    """
+    Manually trigger the weekly GRC report email.
+    Body (optional): { "recipients": ["addr@example.com"] }
+    Logs the dispatch result to email_dispatch_log collection.
+    """
+    from email_service import send_weekly_report
+
+    body = request.get_json(silent=True) or {}
+    recipients = body.get("recipients") or None  # None → falls back to EMAIL_RECIPIENTS env var
+
+    result = send_weekly_report(recipients=recipients)
+
+    # Persist dispatch log entry
+    status_str = "sent" if result.get("ok") else "failed"
+    try:
+        db.db["email_dispatch_log"].insert_one({
+            "triggered_at": datetime.now(timezone.utc).isoformat(),
+            "trigger": "manual",
+            "status": status_str,
+            "error": result.get("error", ""),
+            "recipients": result.get("recipients", []),
+        })
+    except Exception as log_err:
+        print(f"[email] Failed to persist dispatch log: {log_err}")
+
+    http_status = 200 if result.get("ok") else 502
+    return jsonify(result), http_status
+
+
+# ---------------------------------------------------------------------------
+# Compliance & Risk Reports + PDF download endpoints
+# ---------------------------------------------------------------------------
+
+try:
+    from report_pdf import build_compliance_report_pdf as _build_compliance_pdf
+    from report_pdf import build_risk_report_pdf as _build_risk_pdf
+    _report_pdf_ok = True
+except Exception as _rp_err:
+    _report_pdf_ok = False
+    print(f"[WARNING] report_pdf unavailable: {_rp_err}")
+
 
 @app.route("/api/reports/compliance", methods=["POST"])
 def generate_compliance_report():
@@ -2288,6 +2527,196 @@ Return ONLY valid JSON:
     report_json["risk_ids_assessed"] = risk_ids
     report_json["risk_items"] = risks
     return jsonify(report_json)
+
+
+@app.route("/api/reports/compliance/pdf", methods=["POST"])
+def compliance_report_pdf():
+    """
+    Generate a compliance report and return it as a downloadable PDF.
+    Accepts the same body as /api/reports/compliance.
+    """
+    from flask import Response
+
+    if not _report_pdf_ok:
+        return jsonify({"error": "PDF generation unavailable (reportlab not installed)"}), 503
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available"}), 503
+
+    # Re-use the same JSON generation logic
+    body = request.get_json(silent=True) or {}
+    framework_ids = body.get("framework_ids", ["ISO_27001"])
+    pack_id = body.get("pack_id")
+    document_id = body.get("document_id")
+    organization = body.get("organization", "Organization")
+    sector = body.get("sector", "General")
+
+    policy_context = ""
+    if pack_id:
+        pack = db.get_policy_pack(pack_id)
+        if pack:
+            policy_context = f"Policy Pack: {pack.get('name')}\nSector: {pack.get('sector')}\nRisk Level: {pack.get('risk_level')}"
+    elif document_id:
+        doc = db.get_policy_document(document_id)
+        if doc:
+            policy_context = f"Policy Document: {doc.get('name')}\nSector: {doc.get('sector')}"
+
+    frameworks_text = []
+    for fw_id in framework_ids:
+        fw = db.get_framework(fw_id)
+        if fw:
+            frameworks_text.append(f"{fw['name']} — {len(fw.get('controls', []))} controls")
+
+    prompt = f"""You are a senior GRC compliance analyst. Generate a detailed compliance assessment report.
+Organization: {organization}
+Sector: {sector}
+{policy_context}
+Frameworks assessed: {', '.join(frameworks_text)}
+Return ONLY valid JSON:
+{{
+  "report_title": "<title>",
+  "executive_summary": "<2-3 paragraph executive summary>",
+  "compliance_scores": {{
+    "overall": <0-100>,
+    "by_framework": [{{"framework": "<name>", "score": <0-100>, "status": "<Compliant|Partial|Non-Compliant>"}}]
+  }},
+  "key_findings": ["<finding 1>", "<finding 2>", "<finding 3>", "<finding 4>", "<finding 5>"],
+  "critical_gaps": ["<gap 1>", "<gap 2>", "<gap 3>"],
+  "recommendations": ["<recommendation 1>", "<recommendation 2>", "<recommendation 3>", "<recommendation 4>"],
+  "action_plan": [{{"priority": "High", "action": "<action>", "timeline": "<timeline>", "owner": "<role>"}}],
+  "maturity_level": "<Initial|Developing|Defined|Managed|Optimizing>",
+  "next_review_date": "<suggested date>"
+}}"""
+
+    try:
+        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        llm = ChatGroq(model_name=model_name)
+        response = llm.invoke([
+            SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
+            HumanMessage(content=prompt),
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        report_json = json.loads(content.strip())
+    except Exception as e:
+        return jsonify({"error": f"Report generation failed: {e}"}), 500
+
+    report_json["generated_at"] = datetime.now(timezone.utc).isoformat()
+    report_json["framework_ids"] = framework_ids
+
+    try:
+        pdf_bytes = _build_compliance_pdf(report_json)
+    except Exception as e:
+        return jsonify({"error": f"PDF rendering failed: {e}"}), 500
+
+    if not pdf_bytes:
+        return jsonify({"error": "PDF generation failed"}), 500
+
+    filename = f"compliance_report_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@app.route("/api/reports/risk/pdf", methods=["POST"])
+def risk_report_pdf():
+    """
+    Generate a risk assessment report and return it as a downloadable PDF.
+    Accepts the same body as /api/reports/risk.
+    """
+    from flask import Response
+
+    if not _report_pdf_ok:
+        return jsonify({"error": "PDF generation unavailable (reportlab not installed)"}), 503
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available"}), 503
+
+    body = request.get_json(silent=True) or {}
+    risk_ids = body.get("risk_ids", [])
+    sector = body.get("sector", "General")
+    country = body.get("country", "")
+    organization = body.get("organization", "Organization")
+
+    if not risk_ids:
+        risk_ids = [r["risk_id"] for r in db.list_risk_library()]
+
+    risks = db.get_risk_library_items_by_ids(risk_ids)
+    risk_summary = "\n".join([
+        f"[{r['risk_id']}] {r['title']} | Severity: {r['severity']} | Type: {r['risk_type']} | Mitigation: {r['mitigation']}"
+        for r in risks
+    ])
+    country_ctx = f"Country context: {country}\n" if country else ""
+
+    prompt = f"""You are a senior risk management expert. Generate a comprehensive risk assessment report.
+Organization: {organization}
+Sector: {sector}
+{country_ctx}
+Risk Items Assessed:
+{risk_summary}
+Return ONLY valid JSON:
+{{
+  "report_title": "<title>",
+  "executive_summary": "<2-3 paragraph executive summary of risk posture>",
+  "risk_posture": "<Critical|High|Medium|Low>",
+  "overall_risk_score": <0-100>,
+  "key_findings": ["<finding 1>", "<finding 2>", "<finding 3>", "<finding 4>"],
+  "high_priority_risks": ["<risk title 1>", "<risk title 2>", "<risk title 3>"],
+  "risk_treatment_plan": [
+    {{"risk_id": "<id>", "risk": "<title>", "treatment": "Accept|Mitigate|Transfer|Avoid", "action": "<specific action>", "timeline": "<timeline>"}}
+  ],
+  "residual_risks": ["<residual risk 1>", "<residual risk 2>"],
+  "recommendations": ["<recommendation 1>", "<recommendation 2>", "<recommendation 3>"],
+  "governance_actions": [
+    {{"action": "<action>", "owner": "<role>", "due_date": "<timeline>"}}
+  ]
+}}"""
+
+    try:
+        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        llm = ChatGroq(model_name=model_name)
+        response = llm.invoke([
+            SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
+            HumanMessage(content=prompt),
+        ])
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        report_json = json.loads(content.strip())
+    except Exception as e:
+        return jsonify({"error": f"Risk report generation failed: {e}"}), 500
+
+    report_json["generated_at"] = datetime.now(timezone.utc).isoformat()
+    report_json["risk_ids_assessed"] = risk_ids
+    report_json["risk_items"] = risks
+
+    try:
+        pdf_bytes = _build_risk_pdf(report_json)
+    except Exception as e:
+        return jsonify({"error": f"PDF rendering failed: {e}"}), 500
+
+    if not pdf_bytes:
+        return jsonify({"error": "PDF generation failed"}), 500
+
+    filename = f"risk_report_{datetime.now(timezone.utc).strftime('%Y%m%d')}.pdf"
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
