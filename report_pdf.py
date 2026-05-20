@@ -87,12 +87,14 @@ def clean_text(val: Any) -> Any:
 def _make_styles() -> dict:
     return {
         # ── Header band ────────────────────────────────────────────────────────
+        # hb_title kept for backward-compat; _header_band now builds inline styles
         'hb_title': ParagraphStyle(
-            'HBTitle', fontName='Helvetica-Bold', fontSize=20,
-            textColor=WHITE, spaceAfter=4, wordWrap='CJK'),
+            'HBTitle', fontName='Helvetica-Bold', fontSize=15,
+            textColor=WHITE, spaceAfter=4, leading=22, wordWrap='CJK'),
         'hb_sub': ParagraphStyle(
-            'HBSub', fontName='Helvetica', fontSize=9,
-            textColor=rl_colors.HexColor('#94a3b8'), spaceAfter=0, wordWrap='CJK'),
+            'HBSub', fontName='Helvetica', fontSize=8.5,
+            textColor=rl_colors.HexColor('#94a3b8'), spaceAfter=0,
+            leading=12, wordWrap='CJK'),
         # ── Body text ──────────────────────────────────────────────────────────
         'h2': ParagraphStyle(
             'RPH2', fontName='Helvetica-Bold', fontSize=11,
@@ -180,20 +182,67 @@ def _header_band(
     accent=None,
 ):
     """
-    Render a full-width dark header band:
-      row 0  — small REPORT TYPE badge in accent colour
-      row 1  — large report title (white)
-      row 2  — subtitle/meta line (muted grey)
+    Render a full-width dark header band with a two-tier title layout.
+
+    Long titles such as "Compliance Report - Sovereign AI Security Policy"
+    are split on the first dash separator into:
+      • tier 1  — report-type label  (Helvetica-Bold 16 pt, white)
+      • tier 2  — policy/pack name   (Helvetica 11 pt, muted slate #cbd5e1)
+
+    When no separator is found (e.g. a bare policy name) the title is
+    displayed as a single line at 15 pt bold — it is already short enough.
+
+    Table rows:
+      row 0  — small ALL-CAPS badge in accent colour
+      row 1  — two-tier (or single) title paragraph
+      row 2  — subtitle / meta line (muted grey, 8.5 pt)
     """
     accent = accent or INDIGO
+
     badge_style = ParagraphStyle(
         f'HBBadge{id(accent)}', fontName='Helvetica-Bold', fontSize=8,
         textColor=accent, spaceAfter=0, wordWrap='CJK')
 
+    def _xe(t: str) -> str:
+        """Minimal XML-entity escape for ReportLab Paragraph content."""
+        return t.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    # ── Detect two-tier separator: ' - ', ' -- ', em-dash, en-dash ────────────
+    tier1: str | None = None
+    tier2: str = title
+    for sep in (' - ', ' -- ', ' — ', ' – ', '—', '–'):
+        idx = title.find(sep)
+        if idx > 0:
+            tier1 = title[:idx].strip()
+            tier2 = title[idx + len(sep):].strip()
+            break
+
+    if tier1:
+        # Two-tier: "Report Type" large + "Policy Name" smaller, both on DARK_BG
+        title_xml = (
+            f'<font name="Helvetica-Bold" size="16" color="white">{_xe(tier1)}</font>'
+            '<br/>'
+            f'<font name="Helvetica" size="11" color="#cbd5e1">{_xe(tier2)}</font>'
+        )
+        title_leading = 26   # accommodates 16 pt + br gap + 11 pt
+    else:
+        # Single-tier: bare policy name or short title
+        title_xml = (
+            f'<font name="Helvetica-Bold" size="15" color="white">{_xe(tier2)}</font>'
+        )
+        title_leading = 22
+
+    title_para_style = ParagraphStyle(
+        f'HBTitleDyn{id(title)}',
+        fontName='Helvetica', fontSize=16,   # base; actual size set by inline tags
+        textColor=WHITE, leading=title_leading,
+        spaceAfter=0, wordWrap='CJK',
+    )
+
     tbl = Table(
         [
             [Paragraph(report_type.upper(), badge_style)],
-            [Paragraph(title, s['hb_title'])],
+            [Paragraph(title_xml, title_para_style)],
             [Paragraph(subtitle, s['hb_sub'])],
         ],
         colWidths=[CONTENT_W],
@@ -202,13 +251,15 @@ def _header_band(
         ('BACKGROUND',    (0, 0), (-1, -1), DARK_BG),
         ('LEFTPADDING',   (0, 0), (-1, -1), 20),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 20),
-        # Row-level vertical padding
-        ('TOPPADDING',    (0, 0), (0, 0), 18),   # badge row top
-        ('BOTTOMPADDING', (0, 0), (0, 0),  3),   # badge row bottom
-        ('TOPPADDING',    (0, 1), (0, 1),  3),   # title row top
-        ('BOTTOMPADDING', (0, 1), (0, 1),  4),   # title row bottom
-        ('TOPPADDING',    (0, 2), (0, 2),  2),   # subtitle row top
-        ('BOTTOMPADDING', (0, 2), (0, 2), 16),   # subtitle row bottom
+        # Row 0: badge
+        ('TOPPADDING',    (0, 0), (0, 0), 16),
+        ('BOTTOMPADDING', (0, 0), (0, 0),  4),
+        # Row 1: title (generous bottom pad for the two-tier case)
+        ('TOPPADDING',    (0, 1), (0, 1),  4),
+        ('BOTTOMPADDING', (0, 1), (0, 1), 12),
+        # Row 2: subtitle
+        ('TOPPADDING',    (0, 2), (0, 2),  4),
+        ('BOTTOMPADDING', (0, 2), (0, 2), 18),
     ]))
     story.append(tbl)
     story.append(Spacer(1, 6 * mm))
