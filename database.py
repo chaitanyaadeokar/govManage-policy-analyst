@@ -912,6 +912,10 @@ class MongoGovDB:
     def delete_policy_pack(self, pack_id: str) -> None:
         self.policy_packs_col.delete_one({"pack_id": pack_id})
 
+    def update_policy_pack(self, pack_id: str, updates: Dict[str, Any]) -> None:
+        """Merge *updates* into an existing policy pack document."""
+        self.policy_packs_col.update_one({"pack_id": pack_id}, {"$set": updates})
+
 
 db = MongoGovDB()
 

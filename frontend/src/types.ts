@@ -67,6 +67,15 @@ export type PolicyPack = {
   chunk_count: number;
   chroma_status: string;
   created_at: string;
+  // ── LLM-computed scores (populated by _compute_pack_scores on generation
+  //    or by POST /api/policy-packs/<id>/score for existing packs) ────────────
+  compliance_score?: number;
+  risk_score?: number;
+  risk_coverage?: number;
+  maturity_level?: string;
+  risk_posture?: string;
+  next_review_date?: string;
+  compliance_by_framework?: { framework: string; score: number; status: string }[];
 };
 
 export type GeneratedPolicyContent = {

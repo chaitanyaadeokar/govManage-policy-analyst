@@ -4,7 +4,7 @@ import type { PolicyPack } from '../types';
 import {
   FileText, Download, Eye, ShieldCheck, AlertTriangle,
   Clock, Globe, Loader2, RefreshCw, X, BookOpen,
-  Search, Filter, ChevronDown, Trash2
+  Search, Filter, ChevronDown, Trash2, BarChart2
 } from 'lucide-react';
 
 // ─── PDF Viewer Modal ──────────────────────────────────────────────────────
@@ -138,9 +138,67 @@ function RiskBadge({ level }: { level: string }) {
   );
 }
 
+// ─── Score colour helper ────────────────────────────────────────────────────
+
+function scoreColor(val: number) {
+  if (val >= 80) return 'text-emerald-600';
+  if (val >= 60) return 'text-amber-500';
+  return 'text-rose-500';
+}
+
+// ─── Maturity chip ─────────────────────────────────────────────────────────
+
+const MATURITY_CFG: Record<string, { bg: string; text: string }> = {
+  Initial:    { bg: '#fef2f2', text: '#dc2626' },
+  Developing: { bg: '#fffbeb', text: '#d97706' },
+  Defined:    { bg: '#eff6ff', text: '#2563eb' },
+  Managed:    { bg: '#f0fdf4', text: '#16a34a' },
+  Optimizing: { bg: '#f5f3ff', text: '#7c3aed' },
+};
+
+function MaturityChip({ level }: { level: string }) {
+  const c = MATURITY_CFG[level] ?? { bg: '#f1f5f9', text: '#64748b' };
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+      style={{ background: c.bg, color: c.text }}>
+      <BarChart2 size={9} /> {level}
+    </span>
+  );
+}
+
+// ─── Posture chip ──────────────────────────────────────────────────────────
+
+const POSTURE_CFG: Record<string, { bg: string; text: string }> = {
+  Critical: { bg: '#fef2f2', text: '#dc2626' },
+  High:     { bg: '#fff7ed', text: '#c2410c' },
+  Moderate: { bg: '#fffbeb', text: '#d97706' },
+  Low:      { bg: '#f0fdf4', text: '#16a34a' },
+};
+
+function PostureChip({ posture }: { posture: string }) {
+  const c = POSTURE_CFG[posture] ?? { bg: '#f1f5f9', text: '#64748b' };
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+      style={{ background: c.bg, color: c.text }}>
+      ⚡ {posture}
+    </span>
+  );
+}
+
 // ─── Policy card ───────────────────────────────────────────────────────────
 
-function PackCard({ pack, onView, onDelete }: { pack: PolicyPack; onView: () => void; onDelete: () => void }) {
+function PackCard({ pack: initialPack, onView, onDelete }: {
+  pack: PolicyPack;
+  onView: () => void;
+  onDelete: () => void;
+}) {
+  // Local state so Recalculate updates scores in-place without a full list refresh
+  const [pack, setPack] = useState<PolicyPack>(initialPack);
+  const [scoring, setScoring] = useState(false);
+
+  // Keep in sync when parent list refreshes (e.g. user hits global Refresh)
+  useEffect(() => { setPack(initialPack); }, [initialPack]);
+
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
     const a = document.createElement('a');
@@ -149,8 +207,57 @@ function PackCard({ pack, onView, onDelete }: { pack: PolicyPack; onView: () => 
     a.click();
   };
 
+  const handleRecalculate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setScoring(true);
+    try {
+      const res = await fetch(`${API_URL}/policy-packs/${pack.pack_id}/score`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.scores as PolicyPack;
+        setPack(prev => ({
+          ...prev,
+          compliance_score:        s.compliance_score        ?? prev.compliance_score,
+          risk_score:              s.risk_score              ?? prev.risk_score,
+          risk_coverage:           s.risk_coverage           ?? prev.risk_coverage,
+          maturity_level:          s.maturity_level          ?? prev.maturity_level,
+          risk_posture:            s.risk_posture            ?? prev.risk_posture,
+          next_review_date:        s.next_review_date        ?? prev.next_review_date,
+          compliance_by_framework: s.compliance_by_framework ?? prev.compliance_by_framework,
+          policy: {
+            ...prev.policy,
+            compliance_scores: {
+              compliance_readiness: s.compliance_score  ?? prev.policy?.compliance_scores?.compliance_readiness ?? 0,
+              risk_coverage:        s.risk_coverage     ?? prev.policy?.compliance_scores?.risk_coverage        ?? 0,
+              policy_completeness:  prev.policy?.compliance_scores?.policy_completeness ?? 0,
+            },
+          },
+        }));
+      }
+    } catch (err) {
+      console.error('[recalculate]', err);
+    } finally {
+      setScoring(false);
+    }
+  };
+
   const frameworks = pack.selected_compliance_ids?.slice(0, 4) ?? [];
-  const date = new Date(pack.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const date = new Date(pack.created_at).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+  // Prefer dedicated scored values; fall back to policy-LLM estimates
+  const complianceVal = pack.compliance_score ?? pack.policy?.compliance_scores?.compliance_readiness;
+  const riskVal       = pack.risk_score       ?? pack.policy?.compliance_scores?.risk_coverage;
+  const completeVal   = pack.policy?.compliance_scores?.policy_completeness;
+  const hasScores     = complianceVal != null || riskVal != null || completeVal != null;
+  const isRealScore   = pack.compliance_score != null || pack.risk_score != null;
+
+  const scoreItems = [
+    { label: 'Compliance', val: complianceVal },
+    { label: 'Risk Mgmt',  val: riskVal },
+    { label: 'Complete',   val: completeVal },
+  ].filter(s => s.val != null) as { label: string; val: number }[];
 
   return (
     <div
@@ -198,19 +305,36 @@ function PackCard({ pack, onView, onDelete }: { pack: PolicyPack; onView: () => 
           </div>
         )}
 
-        {/* Scores */}
-        {pack.policy?.compliance_scores && (
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {[
-              { label: 'Compliance', val: pack.policy.compliance_scores.compliance_readiness },
-              { label: 'Risk', val: pack.policy.compliance_scores.risk_coverage },
-              { label: 'Complete', val: pack.policy.compliance_scores.policy_completeness },
-            ].map(s => (
-              <div key={s.label} className="text-center bg-slate-50 rounded-lg p-1.5">
-                <div className={`text-sm font-black ${s.val >= 80 ? 'text-emerald-500' : s.val >= 60 ? 'text-amber-500' : 'text-rose-500'}`}>{s.val}%</div>
-                <div className="text-[9px] text-slate-400 font-medium">{s.label}</div>
+        {/* ── Score strip ─────────────────────────────────────────────────── */}
+        {hasScores && (
+          <div className="mb-3 space-y-2">
+            {/* Numeric score boxes */}
+            <div className="grid grid-cols-3 gap-2">
+              {scoreItems.map(s => (
+                <div key={s.label} className="text-center bg-slate-50 rounded-lg p-1.5 relative">
+                  <div className={`text-sm font-black ${scoreColor(s.val)}`}>{s.val}%</div>
+                  <div className="text-[9px] text-slate-400 font-medium">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Maturity + posture chips */}
+            {(pack.maturity_level || pack.risk_posture) && (
+              <div className="flex flex-wrap gap-1.5">
+                {pack.maturity_level && <MaturityChip level={pack.maturity_level} />}
+                {pack.risk_posture   && <PostureChip  posture={pack.risk_posture} />}
+                {pack.next_review_date && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 px-2 py-0.5 rounded-full bg-slate-50 border border-slate-100">
+                    <Clock size={8} /> Review {pack.next_review_date}
+                  </span>
+                )}
               </div>
-            ))}
+            )}
+
+            {/* Source label */}
+            <p className="text-[9px] text-slate-300 font-medium">
+              {isRealScore ? '● LLM-scored' : '◌ Policy-estimated — click ↻ to score'}
+            </p>
           </div>
         )}
 
@@ -228,6 +352,16 @@ function PackCard({ pack, onView, onDelete }: { pack: PolicyPack; onView: () => 
             title="Download PDF"
           >
             <Download size={13} />
+          </button>
+          <button
+            className="flex items-center justify-center gap-1.5 text-xs font-bold text-violet-600 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-xl transition-colors disabled:opacity-40"
+            onClick={handleRecalculate}
+            disabled={scoring}
+            title={scoring ? 'Calculating scores…' : 'Recalculate compliance & risk scores'}
+          >
+            {scoring
+              ? <Loader2 size={13} className="animate-spin" />
+              : <RefreshCw size={13} />}
           </button>
           <button
             className="flex items-center justify-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl transition-colors"

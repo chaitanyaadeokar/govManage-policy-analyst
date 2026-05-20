@@ -1921,6 +1921,135 @@ def suggest_context():
             "suggested_risks": ["RISK-001", "RISK-004", "RISK-006"]
         })
 
+# ---------------------------------------------------------------------------
+# Pack Scoring Helper  (same LLM prompt logic as /api/reports/compliance
+# and /api/reports/risk — but lightweight, returns only scores)
+# ---------------------------------------------------------------------------
+
+def _compute_pack_scores(
+    pack_doc: Dict[str, Any],
+    compliance_data: List[Dict],
+    risk_items: List[Dict],
+    llm,
+) -> Dict[str, Any]:
+    """
+    Run compliance + risk scoring LLM calls and return a dict of score fields
+    to be merged into the pack document:
+
+      compliance_score       int 0-100
+      maturity_level         str  ("Initial" … "Optimizing")
+      next_review_date       str  YYYY-MM-DD
+      compliance_by_framework list[{framework, score, status}]
+      risk_score             int 0-100  (how well risk is managed)
+      risk_posture           str  ("Critical" | "High" | "Moderate" | "Low")
+      risk_coverage          int 0-100  (% risks with mitigations)
+
+    Any section that fails is silently skipped (partial results still returned).
+    """
+    scores: Dict[str, Any] = {}
+
+    name       = pack_doc.get("name") or pack_doc.get("topic", "Policy Pack")
+    sector     = pack_doc.get("sector", "General")
+    country    = pack_doc.get("country", "Global") or "Global"
+    risk_level = pack_doc.get("risk_level", "Medium")
+    policy     = pack_doc.get("policy", {})
+
+    # ── 1. Compliance scoring ─────────────────────────────────────────────────
+    if compliance_data:
+        try:
+            fw_lines = "\n".join([
+                f"- {fw['name']} ({fw.get('region', 'Global')}) — {len(fw.get('controls', []))} controls"
+                for fw in compliance_data
+            ])
+            comp_prompt = f"""You are a senior GRC compliance analyst. Assess the policy below against the listed frameworks and return accurate numeric scores.
+
+Policy: {name}
+Sector: {sector}
+Country: {country}
+Risk Level: {risk_level}
+Objective: {policy.get('objective', 'N/A')}
+Scope: {policy.get('scope', 'N/A')}
+
+Frameworks:
+{fw_lines}
+
+Scoring guidance:
+- New policy covering all major framework areas: 70-85
+- Mature / audited policy: 85-100
+- Policy with notable gaps: 50-70
+
+Return ONLY valid JSON — no markdown fences, no extra keys:
+{{
+  "overall": <integer 0-100>,
+  "by_framework": [{{"framework": "<name>", "score": <0-100>, "status": "<Compliant|Partial|Non-Compliant>"}}],
+  "maturity_level": "<Initial|Developing|Defined|Managed|Optimizing>",
+  "next_review_date": "<YYYY-MM-DD, 6-12 months from today>"
+}}"""
+            resp = llm.invoke([
+                SystemMessage(content="You are a strict JSON-only API. Output only valid JSON."),
+                HumanMessage(content=comp_prompt),
+            ])
+            raw = resp.content.strip()
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1] if len(parts) > 1 else raw
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            cj = json.loads(raw.strip())
+            scores["compliance_score"]        = int(cj.get("overall", 70))
+            scores["maturity_level"]          = cj.get("maturity_level", "Developing")
+            scores["next_review_date"]        = cj.get("next_review_date", "")
+            scores["compliance_by_framework"] = cj.get("by_framework", [])
+        except Exception as e:
+            print(f"[score-pack] Compliance scoring failed: {e}")
+
+    # ── 2. Risk scoring ────────────────────────────────────────────────────────
+    if risk_items:
+        try:
+            risk_lines = "\n".join([
+                f"[{r['risk_id']}] {r['title']} | Severity: {r['severity']} | Type: {r.get('risk_type', 'N/A')} | Mitigation: {r.get('mitigation', 'N/A')}"
+                for r in risk_items[:10]
+            ])
+            risk_prompt = f"""You are a senior risk management expert. Evaluate how well the policy pack manages the listed risks.
+
+Policy: {name}
+Sector: {sector}
+Country: {country}
+
+Risk Items ({len(risk_items)} total):
+{risk_lines}
+
+Scoring guidance:
+- overall_risk_score: how effectively the policy manages risk (higher = better managed, 0-100)
+- risk_coverage_pct: percentage of listed risks that have adequate mitigations in this policy (0-100)
+- risk_posture: overall residual risk posture after policy mitigations
+
+Return ONLY valid JSON — no markdown fences:
+{{
+  "overall_risk_score": <integer 0-100>,
+  "risk_posture": "<Critical|High|Moderate|Low>",
+  "risk_coverage_pct": <integer 0-100>
+}}"""
+            resp = llm.invoke([
+                SystemMessage(content="You are a strict JSON-only API. Output only valid JSON."),
+                HumanMessage(content=risk_prompt),
+            ])
+            raw = resp.content.strip()
+            if raw.startswith("```"):
+                parts = raw.split("```")
+                raw = parts[1] if len(parts) > 1 else raw
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            rj = json.loads(raw.strip())
+            scores["risk_score"]    = int(rj.get("overall_risk_score", 60))
+            scores["risk_posture"]  = rj.get("risk_posture", "Moderate")
+            scores["risk_coverage"] = int(rj.get("risk_coverage_pct", 60))
+        except Exception as e:
+            print(f"[score-pack] Risk scoring failed: {e}")
+
+    return scores
+
+
 @app.route("/api/policies/generate-pack", methods=["POST"])
 def generate_policy_pack():
     """
@@ -2176,6 +2305,29 @@ Include at least 5 policy_statements, 3 procedures (each with 3-4 steps), and 4 
         "is_active": True,
     }
 
+    # ─── Post-generation Scoring ───────────────────────────────────────────────
+    # Run the same compliance + risk scoring logic used by the report endpoints.
+    # Scores are merged back into pack_doc AND into policy.compliance_scores so
+    # the Policy Library cards immediately show real LLM-computed values.
+    try:
+        scoring_llm = ChatGroq(model_name=model_name)
+        pack_scores = _compute_pack_scores(pack_doc, compliance_data, risk_items, scoring_llm)
+        pack_doc.update(pack_scores)
+
+        # Mirror real scores into policy.compliance_scores for backward-compat display
+        policy_cs = pack_doc.get("policy", {}).get("compliance_scores", {})
+        if "compliance_score" in pack_scores:
+            policy_cs["compliance_readiness"] = pack_scores["compliance_score"]
+        if "risk_coverage" in pack_scores:
+            policy_cs["risk_coverage"] = pack_scores["risk_coverage"]
+        pack_doc.setdefault("policy", {})["compliance_scores"] = policy_cs
+
+        print(f"[generate-pack] Scores — compliance={pack_scores.get('compliance_score')} "
+              f"risk={pack_scores.get('risk_score')} maturity={pack_scores.get('maturity_level')} "
+              f"posture={pack_scores.get('risk_posture')}")
+    except Exception as scoring_err:
+        print(f"[generate-pack] Scoring step failed (non-fatal): {scoring_err}")
+
     # ─── Generate & store PDF ──────────────────────────────────────────────
     try:
         pdf_bytes = _build_pdf_bytes(pack_doc)
@@ -2222,6 +2374,68 @@ def delete_policy_pack(pack_id: str):
             pass
     db.delete_policy_pack(pack_id)
     return jsonify({"status": "deleted", "pack_id": pack_id})
+
+
+@app.route("/api/policy-packs/<pack_id>/score", methods=["POST"])
+def recalculate_pack_scores(pack_id: str):
+    """
+    (Re)calculate compliance and risk scores for an existing policy pack using
+    the same LLM logic as the /api/reports/compliance and /api/reports/risk
+    endpoints.  Stores results back into MongoDB and returns the updated scores.
+
+    Useful for:
+      - Packs generated before the auto-scoring feature was added
+      - Manual refresh when framework/risk library changes
+    """
+    if not ChatGroq:
+        return jsonify({"error": "LLM not available — check GROQ_API_KEY"}), 503
+
+    pack = db.get_policy_pack(pack_id)
+    if not pack:
+        return jsonify({"error": "Policy pack not found"}), 404
+
+    # Re-fetch compliance framework details
+    compliance_data: List[Dict] = []
+    for fw_id in pack.get("selected_compliance_ids", []):
+        fw = db.get_framework(fw_id)
+        if fw:
+            compliance_data.append(fw)
+
+    # Re-fetch risk library items
+    risk_items: List[Dict] = db.get_risk_library_items_by_ids(
+        pack.get("selected_risk_ids", [])
+    )
+
+    model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    llm = ChatGroq(model_name=model_name)
+
+    try:
+        pack_scores = _compute_pack_scores(pack, compliance_data, risk_items, llm)
+    except Exception as e:
+        return jsonify({"error": f"Scoring failed: {e}"}), 500
+
+    if not pack_scores:
+        return jsonify({"error": "No compliance or risk data available to score against"}), 400
+
+    # Build the $set update: top-level score fields + nested policy.compliance_scores
+    updates: Dict[str, Any] = {k: v for k, v in pack_scores.items()}
+
+    # Mirror real scores into policy.compliance_scores for Policy Library display
+    existing_cs = (pack.get("policy") or {}).get("compliance_scores") or {}
+    updated_cs = dict(existing_cs)
+    if "compliance_score" in pack_scores:
+        updated_cs["compliance_readiness"] = pack_scores["compliance_score"]
+    if "risk_coverage" in pack_scores:
+        updated_cs["risk_coverage"] = pack_scores["risk_coverage"]
+    updates["policy.compliance_scores"] = updated_cs
+
+    db.update_policy_pack(pack_id, updates)
+
+    print(f"[recalc-scores] {pack_id} — compliance={pack_scores.get('compliance_score')} "
+          f"risk={pack_scores.get('risk_score')} maturity={pack_scores.get('maturity_level')} "
+          f"posture={pack_scores.get('risk_posture')}")
+
+    return jsonify({"status": "ok", "pack_id": pack_id, "scores": pack_scores})
 
 
 @app.route("/api/policy-packs/<pack_id>/pdf", methods=["GET"])
