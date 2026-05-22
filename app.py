@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 import uuid
+import glob
 from typing import Any, Dict, List, Tuple
 
 from dotenv import load_dotenv
@@ -602,6 +603,39 @@ def read_root():
     return jsonify({"status": "GovManage API active", "storage": "MongoDB", "modes": ["minimum", "rule_engine", "advanced", "agentic"]})
 
 
+@app.route("/api/agent-status", methods=["GET"])
+def get_agent_status():
+    queues_dir = os.path.join("agents_micro", "shared_queues")
+    status = {}
+    total_active = 0
+    
+    queue_names = [
+        "1_inbox",
+        "2_compliance",
+        "2_policy",
+        "2_risk",
+        "3_decision",
+        "4_audit",
+        "5_report",
+        "6_feedback"
+    ]
+    
+    for q in queue_names:
+        q_path = os.path.join(queues_dir, q)
+        if os.path.exists(q_path):
+            files = [f for f in os.listdir(q_path) if f.endswith(".json") and os.path.isfile(os.path.join(q_path, f))]
+            count = len(files)
+            status[q] = count
+            total_active += count
+        else:
+            status[q] = 0
+            
+    return jsonify({
+        "status": status,
+        "total_active": total_active
+    })
+
+
 @app.route("/api/kpis", methods=["GET"])
 def get_kpis():
     total_actions = db.count_actions()
@@ -954,6 +988,22 @@ def get_compliance_framework(framework_id: str):
     if not framework:
         return jsonify({"error": f"Framework '{framework_id}' not found"}), 404
     return jsonify(framework)
+
+
+@app.route("/api/risk/library", methods=["GET"])
+def list_risk_library():
+    """List all seeded risk factors from the library."""
+    risks = db.list_risk_library()
+    return jsonify(risks)
+
+
+@app.route("/api/risk/library/<risk_id>", methods=["GET"])
+def get_risk_library_item(risk_id: str):
+    """Return a specific risk factor."""
+    risk = db.get_risk_library_item(risk_id)
+    if not risk:
+        return jsonify({"error": f"Risk '{risk_id}' not found"}), 404
+    return jsonify(risk)
 
 
 @app.route("/api/compliance/frameworks/discover", methods=["POST"])

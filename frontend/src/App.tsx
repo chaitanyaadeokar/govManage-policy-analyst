@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { LayoutDashboard, FileText, UploadCloud, ShieldCheck, AlertTriangle, MessageSquare, Bell } from 'lucide-react';
+import { LayoutDashboard, FileText, UploadCloud, ShieldCheck, AlertTriangle, MessageSquare, Bell, Database } from 'lucide-react';
 import PolicyHub from './components/PolicyHub';
 import GeneratePolicyWizard from './components/GeneratePolicyWizard';
-import UploadAssess from './components/UploadAssess';
+import DatabaseExplorer from './components/DatabaseExplorer';
 import ReportingChat from './components/ReportingChat';
 import AiPolicyChatComponent from './components/AiPolicyChat';
 import PolicyLibrary from './components/PolicyLibrary';
 import EmailSettings from './components/EmailSettings';
+import AgentStatusWidget from './components/AgentStatusWidget';
+
 
 
 export default function App() {
@@ -16,7 +18,7 @@ export default function App() {
     { id: 'hub', label: 'Policy Hub', icon: LayoutDashboard },
     { id: 'generate', label: 'Generate Policy', icon: FileText },
     { id: 'library', label: 'Policy Library', icon: FileText },
-    { id: 'upload', label: 'Upload & Assess', icon: UploadCloud },
+    { id: 'database', label: 'Database Explorer', icon: Database },
     { id: 'compliance-report', label: 'Compliance Reports', icon: ShieldCheck },
     { id: 'risk-report', label: 'Risk Reports', icon: AlertTriangle },
     { id: 'chat', label: 'AI Policy Chat', icon: MessageSquare },
@@ -55,8 +57,8 @@ export default function App() {
           <button className={`nav-item ${currentTab === 'library' ? 'active' : ''}`} onClick={() => setCurrentTab('library')}>
             <FileText size={16} /> Policy Library
           </button>
-          <button className={`nav-item ${currentTab === 'upload' ? 'active' : ''}`} onClick={() => setCurrentTab('upload')}>
-            <UploadCloud size={16} /> Upload & Assess
+          <button className={`nav-item ${currentTab === 'database' ? 'active' : ''}`} onClick={() => setCurrentTab('database')}>
+            <Database size={16} /> Database Explorer
           </button>
 
           <div className="nav-section-label mt-4">Analytics</div>
@@ -113,7 +115,7 @@ export default function App() {
          <div className="p-6 md:p-8">
             {currentTab === 'hub' && <PolicyHub onNavigate={setCurrentTab} />}
             {currentTab === 'generate' && <GeneratePolicyWizard onSuccess={() => {}} />}
-            {currentTab === 'upload' && <UploadAssess />}
+            {currentTab === 'database' && <DatabaseExplorer />}
             {currentTab === 'library' && <PolicyLibrary />}
             {currentTab === 'compliance-report' && <ReportingChat mode="compliance" />}
             {currentTab === 'risk-report' && <ReportingChat mode="risk" />}
@@ -121,6 +123,8 @@ export default function App() {
             {currentTab === 'settings' && <EmailSettings />}
          </div>
       </div>
+      
+      <AgentStatusWidget />
     </div>
   );
 }
