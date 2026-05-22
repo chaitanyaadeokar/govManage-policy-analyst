@@ -38,11 +38,14 @@ load_dotenv()
 try:
     from langchain_groq import ChatGroq
     from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-except Exception:
+    from langgraph.prebuilt import create_react_agent
+    from tools import list_all_frameworks, get_framework_details, list_risk_library, trigger_policy_generation, suggest_frameworks, suggest_risks
+except Exception as e:
     ChatGroq = None
     HumanMessage = None
     SystemMessage = None
     AIMessage = None
+    print(f"LangChain import error: {e}")
 
 
 try:
@@ -605,33 +608,66 @@ def read_root():
 
 @app.route("/api/agent-status", methods=["GET"])
 def get_agent_status():
+    import json, time
     queues_dir = os.path.join("agents_micro", "shared_queues")
-    status = {}
+    activities = []
     total_active = 0
     
-    queue_names = [
-        "1_inbox",
-        "2_compliance",
-        "2_policy",
-        "2_risk",
-        "3_decision",
-        "4_audit",
-        "5_report",
-        "6_feedback"
-    ]
+    queue_labels = {
+        "1_inbox": "Orchestrator",
+        "2_compliance": "Compliance Agent",
+        "2_policy": "Policy Agent",
+        "2_risk": "Risk Assessment Agent",
+        "3_decision": "Decision Engine",
+        "4_audit": "Audit Logging",
+        "5_report": "Reporting Agent",
+        "6_feedback": "Feedback Loop"
+    }
+    
+    queue_names = list(queue_labels.keys())
     
     for q in queue_names:
         q_path = os.path.join(queues_dir, q)
         if os.path.exists(q_path):
-            files = [f for f in os.listdir(q_path) if f.endswith(".json") and os.path.isfile(os.path.join(q_path, f))]
-            count = len(files)
-            status[q] = count
-            total_active += count
-        else:
-            status[q] = 0
-            
+            try:
+                files = [f for f in os.listdir(q_path) if f.endswith(".json") and os.path.isfile(os.path.join(q_path, f))]
+                total_active += len(files)
+                
+                for f in files:
+                    file_path = os.path.join(q_path, f)
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as file:
+                            data = json.load(file)
+                            event_id = data.get("event_id", f.split(".")[0])
+                            event_type = data.get("event_type", "event")
+                            
+                            action_verbs = {
+                                "1_inbox": "is routing",
+                                "2_compliance": "is assessing compliance for",
+                                "2_policy": "is generating policy for",
+                                "2_risk": "is evaluating risks for",
+                                "3_decision": "is synthesizing final decision for",
+                                "4_audit": "is committing audit log for",
+                                "5_report": "is drafting report for",
+                                "6_feedback": "is processing feedback for"
+                            }
+                            
+                            verb = action_verbs.get(q, "is processing")
+                            message = f"{queue_labels[q]} {verb} {event_type} ({event_id[:8]})"
+                            
+                            activities.append({
+                                "queue": q,
+                                "message": message,
+                                "timestamp": time.time()
+                            })
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+                
+    # Optional: could sort activities here if timestamps were actual file creation times
     return jsonify({
-        "status": status,
+        "activities": activities,
         "total_active": total_active
     })
 
@@ -1287,14 +1323,69 @@ def risk_score():
     if not matrix:
         return jsonify({"error": "No risk matrix found for this event type"}), 404
 
-    # --- base TVI from existing risk_parameters (fast, backward-compat) ---
-    base_params = db.get_risk_params(event_type)
-    base_tvi = round(
-        float(base_params.get("threat", 0.5))
-        * float(base_params.get("vulnerability", 0.5))
-        * float(base_params.get("impact", 0.5)),
-        4,
-    )
+    # --- Dynamic AI Risk Assessment (LLM) ---
+    import json
+    
+    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    llm = ChatGroq(model_name=model_name)
+    payload_str = json.dumps(payload, indent=2)
+    
+    prompt = f"""You are an expert Risk Assessment AI for a governance platform.
+
+We need to dynamically identify the specific risks associated with the following policy/event context. 
+
+EVENT TYPE: {event_type}
+PAYLOAD (Policy/Event Context):
+{payload_str}
+
+Instructions:
+1. Carefully analyze the payload to identify specific, realistic risks (e.g., data breach, compliance violation, operational downtime) that this policy aims to mitigate or risks that could occur if this policy is violated.
+2. For each identified risk, provide:
+   - "risk_name": A concise name for the risk.
+   - "severity": A score from 0 to 10 (10 being most severe).
+   - "justification": Why this risk is relevant based on the payload.
+3. Synthesize the overall risk profile into a single "tvi_score" (a float between 0.0 and 1.0, where 1.0 is extreme risk).
+4. Provide a concise "risk_narrative" (2-3 sentences) summarizing the key risk drivers.
+
+Return ONLY valid JSON with this exact structure (no markdown blocks, no text outside JSON):
+{{
+  "identified_risks": [
+    {{
+      "risk_name": "<string>",
+      "severity": <0-10>,
+      "justification": "<string>"
+    }}
+  ],
+  "tvi_score": <0.0-1.0>,
+  "risk_narrative": "<string>"
+}}"""
+
+    response = llm.invoke([
+        SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
+        HumanMessage(content=prompt),
+    ])
+
+    identified_risks = []
+    base_tvi = 0.5
+    risk_narrative = "Analysis failed to parse correctly."
+
+    try:
+        content = response.content.strip()
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+            content = content.strip()
+        parsed = json.loads(content)
+        identified_risks = parsed.get("identified_risks", [])
+        base_tvi = float(parsed.get("tvi_score", 0.5))
+        risk_narrative = parsed.get("risk_narrative", "")
+    except Exception as e:
+        print(f"[risk/score] JSON parse error: {e}")
+        identified_risks = [{"risk_name": "Parsing Error Risk", "severity": 7, "justification": "Fallback risk applied due to AI parsing failure."}]
+        base_tvi = 0.7
+
+    base_tvi = max(0.0, min(1.0, base_tvi))
 
     # --- policy coverage adjustment (ChromaDB) ---
     coverage_context: List[Dict[str, Any]] = []
@@ -1352,15 +1443,13 @@ def risk_score():
     breakdown: Dict[str, Any] = {
         "matrix_used": matrix.get("matrix_id"),
         "matrix_name": matrix.get("name"),
+        "identified_risks": identified_risks,
+        "risk_narrative": risk_narrative,
         "base_tvi": base_tvi,
         "coverage_adjustment": coverage_adjustment,
         "adjusted_tvi": adjusted_tvi,
-        "weights": matrix.get("weights", {}),
-        "threat_factors": matrix.get("threat_factors", []),
-        "vulnerability_factors": matrix.get("vulnerability_factors", []),
-        "impact_factors": matrix.get("impact_factors", []),
         "contributing_factors": [
-            f"Base TVI from risk parameters: {base_tvi}",
+            f"Base TVI from Dynamic LLM Analysis: {base_tvi}",
             f"Policy coverage adjustment: {coverage_adjustment:+.4f} ({rag_count} chunks retrieved)",
             f"Frameworks matched: {frameworks_matched or ['none']}",
             f"Policy documents indexed: {policy_count}",
@@ -3085,6 +3174,12 @@ def chat_reporting():
         "- Use plain structured text. Mark section headers by writing them in ALL CAPS or with a preceding dash line.\n"
         "- Use '- ' for bullet points and '1. ' for numbered steps.\n"
         "- Use **word** only for emphasis on critical terms.\n"
+        "- You have access to tools. If the user asks to see frameworks or risks, ALWAYS use the appropriate tool before answering.\n"
+        "- **POLICY GENERATION WORKFLOW:** If the user asks to generate or draft a policy, DO NOT draft the policy yourself. Follow this exact workflow:\n"
+        "   1. Ask clarifying questions to get the topic and sector (if not provided).\n"
+        "   2. Use the `suggest_frameworks` and `suggest_risks` tools to find relevant compliance frameworks and risk factors for their topic.\n"
+        "   3. Present the suggested frameworks and risks to the user and ask for their approval to proceed.\n"
+        "   4. Once the user confirms, use the `trigger_policy_generation` tool to hand off the work to the background micro-agents. Pass the confirmed framework IDs and risk IDs to the tool.\n"
         "- Be concise, specific, and cite framework controls or policy sections where applicable.\n"
         "- Do not fabricate standards or controls — only reference what appears in the provided context.\n"
         "- When drawing from multiple sources, indicate clearly whether a point comes from an internal policy or an external regulatory source."
@@ -3102,23 +3197,31 @@ def chat_reporting():
     if context_parts:
         system_prompt += "\n\n" + "\n\n".join(context_parts)
 
-    chat_msgs = [SystemMessage(content=system_prompt)]
-    for h in history[-8:]:
-        role = h.get("role", "")
-        content = h.get("content", "")
-        if role == "user":
-            chat_msgs.append(HumanMessage(content=content))
-        elif role == "assistant":
-            chat_msgs.append(AIMessage(content=content))
-    chat_msgs.append(HumanMessage(content=message))
-
     try:
+        tools = [list_all_frameworks, get_framework_details, list_risk_library, trigger_policy_generation, suggest_frameworks, suggest_risks]
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-        llm = ChatGroq(model_name=model_name)
-        response = llm.invoke(chat_msgs)
-        return jsonify({"response": response.content, "citations": citations_out})
+        llm = ChatGroq(model_name=model_name, temperature=0.1)
+        
+        chat_history = [SystemMessage(content=system_prompt)]
+        for h in history[-8:]:
+            role = h.get("role", "")
+            content = h.get("content", "")
+            if role == "user":
+                chat_history.append(HumanMessage(content=content))
+            elif role == "assistant":
+                chat_history.append(AIMessage(content=content))
+        chat_history.append(HumanMessage(content=message))
+                
+        agent_executor = create_react_agent(llm, tools)
+        
+        result = agent_executor.invoke({"messages": chat_history})
+        final_message = result["messages"][-1].content
+        
+        return jsonify({"response": final_message, "citations": citations_out})
     except Exception as e:
-        return jsonify({"error": f"LLM Chat Error: {str(e)}"}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"LLM Agent Error: {str(e)}"}), 500
 
 if __name__ == "__main__":
     port = int(__import__("os").getenv("PORT", "5000"))

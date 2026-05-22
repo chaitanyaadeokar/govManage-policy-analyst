@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Activity, CheckCircle2, ChevronDown, X } from 'lucide-react';
 
+interface ActivityItem {
+  queue: string;
+  message: string;
+  timestamp: number;
+}
+
 interface AgentStatus {
-  status: Record<string, number>;
+  activities: ActivityItem[];
   total_active: number;
 }
 
 export default function AgentStatusWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const [data, setData] = useState<AgentStatus>({ status: {}, total_active: 0 });
+  const [data, setData] = useState<AgentStatus>({ activities: [], total_active: 0 });
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -28,16 +34,7 @@ export default function AgentStatusWidget() {
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  const queueLabels: Record<string, string> = {
-    "1_inbox": "Orchestrator Inbox",
-    "2_compliance": "Compliance Assessment",
-    "2_policy": "Policy Generation",
-    "2_risk": "Risk Evaluation",
-    "3_decision": "Decision Engine",
-    "4_audit": "Audit Logging",
-    "5_report": "Report Generation",
-    "6_feedback": "Feedback Loop"
-  };
+
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
@@ -69,34 +66,24 @@ export default function AgentStatusWidget() {
           </div>
           
           <div className="space-y-2 overflow-y-auto max-h-[300px] custom-scrollbar pr-1">
-            {Object.keys(data.status).length === 0 ? (
-              <div className="text-xs text-slate-500 text-center py-4">Waiting for agent data...</div>
+            {!data.activities || data.activities.length === 0 ? (
+              <div className="text-xs text-slate-500 text-center py-4">All systems idle...</div>
             ) : (
-              Object.entries(data.status).map(([queue, count]) => {
-                const isActive = count > 0;
-                return (
-                  <div 
-                    key={queue}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border ${
-                      isActive 
-                        ? 'bg-indigo-50/50 border-indigo-100' 
-                        : 'bg-slate-50/50 border-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-indigo-500 animate-pulse' : 'bg-slate-300'}`} />
-                      <span className={`text-xs font-medium ${isActive ? 'text-indigo-900' : 'text-slate-500'}`}>
-                        {queueLabels[queue] || queue}
-                      </span>
-                    </div>
-                    <div className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                      isActive ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-500'
-                    }`}>
-                      {count}
-                    </div>
+              data.activities.map((activity, index) => (
+                <div 
+                  key={`${activity.queue}-${index}`}
+                  className="flex items-start gap-3 p-3 rounded-xl border bg-indigo-50/50 border-indigo-100 shadow-sm animate-in fade-in"
+                >
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
                   </div>
-                );
-              })
+                  <div>
+                    <p className="text-xs font-semibold text-indigo-900 leading-snug">
+                      {activity.message}
+                    </p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
