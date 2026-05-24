@@ -19,6 +19,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from database import db
+from llm_utils import get_groq_llm, safe_invoke
 from reports import generate_macro_report
 from file_parser import ALLOWED_EXTENSIONS, chunk_text, parse_file
 
@@ -1092,7 +1093,7 @@ def discover_frameworks():
     try:
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
             HumanMessage(content=prompt),
         ])
@@ -1353,7 +1354,7 @@ Return ONLY valid JSON with this exact structure (no markdown blocks, no text ou
   "risk_narrative": "<string>"
 }}"""
 
-    response = llm.invoke([
+    response = safe_invoke(llm, [
         SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
         HumanMessage(content=prompt),
     ])
@@ -1598,8 +1599,8 @@ def chat_message():
     response_text = "AI service unavailable — check GROQ_API_KEY in your .env file."
     if ChatGroq is not None and os.getenv("GROQ_API_KEY"):
         try:
-            chat_llm = ChatGroq(model_name=os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"))
-            resp = chat_llm.invoke([
+            chat_llm = get_groq_llm()
+            resp = safe_invoke(chat_llm, [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=user_prompt),
             ])
@@ -1645,7 +1646,7 @@ def list_chat_sessions():
     return jsonify(db.list_chat_sessions())
 
 
-@app.route("/api/chat/sessions/<session_id>", methods=["GET"])
+@app.route("/api/chat/session/<session_id>", methods=["GET"])
 def get_chat_session(session_id: str):
     session = db.get_chat_session(session_id)
     if not session:
@@ -1720,7 +1721,7 @@ Include at least 5 policy_statements and 4 controls. Be specific, not generic.""
     try:
         model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
             HumanMessage(content=prompt),
         ])
@@ -2120,7 +2121,7 @@ Return ONLY valid JSON — no markdown fences, no extra keys:
   "maturity_level": "<Initial|Developing|Defined|Managed|Optimizing>",
   "next_review_date": "<YYYY-MM-DD, 6-12 months from today>"
 }}"""
-            resp = llm.invoke([
+            resp = safe_invoke(llm, [
                 SystemMessage(content="You are a strict JSON-only API. Output only valid JSON."),
                 HumanMessage(content=comp_prompt),
             ])
@@ -2165,7 +2166,7 @@ Return ONLY valid JSON — no markdown fences:
   "risk_posture": "<Critical|High|Moderate|Low>",
   "risk_coverage_pct": <integer 0-100>
 }}"""
-            resp = llm.invoke([
+            resp = safe_invoke(llm, [
                 SystemMessage(content="You are a strict JSON-only API. Output only valid JSON."),
                 HumanMessage(content=risk_prompt),
             ])
@@ -2363,7 +2364,7 @@ Include at least 5 policy_statements, 3 procedures (each with 3-4 steps), and 4 
     try:
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
             HumanMessage(content=prompt),
         ])
@@ -2484,12 +2485,52 @@ Include at least 5 policy_statements, 3 procedures (each with 3-4 steps), and 4 
 def list_policy_packs():
     """List all generated policy packs."""
     packs = db.list_policy_packs()
+    
+    # Also include standalone policy documents from the AI chat
+    docs = db.list_policy_documents(active_only=True)
+    for doc in docs:
+        if "pack_id" not in doc:
+            packs.append({
+                "pack_id": doc.get("policy_id") or doc.get("document_id"),
+                "topic": doc.get("title") or doc.get("name") or "Policy Document",
+                "sector": doc.get("sector", "General"),
+                "risk_level": "AI Chat",
+                "created_at": doc.get("created_at"),
+                "is_chat_doc": True,
+                "policy": {
+                    "name": doc.get("title") or doc.get("name") or "Policy Document",
+                    "compliance_scores": {
+                        "policy_completeness": 100,
+                        "risk_coverage": 100,
+                        "compliance_readiness": 100
+                    }
+                }
+            })
+            
+    # Sort by created_at descending, safely handling None values
+    packs.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return jsonify(packs)
 
 
 @app.route("/api/policy-packs/<pack_id>", methods=["GET"])
 def get_policy_pack(pack_id: str):
     """Get a specific policy pack with full details."""
+    if pack_id.startswith("pol_"):
+        doc = db.db["policy_documents"].find_one({"policy_id": pack_id})
+        if not doc:
+            return jsonify({"error": "Policy document not found"}), 404
+        return jsonify({
+            "pack_id": pack_id,
+            "topic": doc.get("title") or "Policy Document",
+            "sector": doc.get("sector", "General"),
+            "risk_level": "AI Chat",
+            "created_at": doc.get("created_at"),
+            "policy": {
+                "name": doc.get("title") or "Policy Document",
+                "compliance_scores": {"policy_completeness": 100, "risk_coverage": 100, "compliance_readiness": 100}
+            }
+        })
+        
     pack = db.get_policy_pack(pack_id)
     if not pack:
         return jsonify({"error": "Policy pack not found"}), 404
@@ -2498,7 +2539,13 @@ def get_policy_pack(pack_id: str):
 
 @app.route("/api/policy-packs/<pack_id>", methods=["DELETE"])
 def delete_policy_pack(pack_id: str):
-    """Delete a policy pack."""
+    """Delete a policy pack or policy document."""
+    if pack_id.startswith("pol_"):
+        result = db.db["policy_documents"].delete_one({"policy_id": pack_id})
+        if result.deleted_count > 0:
+            return jsonify({"status": "deleted", "pack_id": pack_id})
+        return jsonify({"error": "Policy document not found"}), 404
+        
     pack = db.get_policy_pack(pack_id)
     if not pack:
         return jsonify({"error": "Policy pack not found"}), 404
@@ -2518,11 +2565,11 @@ def recalculate_pack_scores(pack_id: str):
     (Re)calculate compliance and risk scores for an existing policy pack using
     the same LLM logic as the /api/reports/compliance and /api/reports/risk
     endpoints.  Stores results back into MongoDB and returns the updated scores.
-
-    Useful for:
-      - Packs generated before the auto-scoring feature was added
-      - Manual refresh when framework/risk library changes
     """
+    if pack_id.startswith("pol_"):
+        # AI Chat policies are standalone markdown documents and don't support pack scoring
+        return jsonify({"status": "ok", "pack_id": pack_id, "scores": {}})
+
     if not ChatGroq:
         return jsonify({"error": "LLM not available — check GROQ_API_KEY"}), 503
 
@@ -2578,11 +2625,30 @@ def recalculate_pack_scores(pack_id: str):
 def get_policy_pack_pdf(pack_id: str):
     """
     Serve the policy pack PDF using the professional ReportLab layout
-    (dark header band, KPI strip, justified body text, page footer).
-    Always regenerates live from the stored document so any layout
-    improvements are picked up automatically on the next open/download.
     """
     from flask import Response
+    
+    if pack_id.startswith("pol_"):
+        doc = db.db["policy_documents"].find_one({"policy_id": pack_id})
+        if not doc:
+            return jsonify({"error": "Policy document not found"}), 404
+        try:
+            from report_pdf import build_markdown_policy_pdf
+            pdf_bytes = build_markdown_policy_pdf(doc)
+            filename = f"{pack_id}.pdf"
+            return Response(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={
+                    "Content-Disposition": f'inline; filename="{filename}"; filename*=UTF-8\'\'{filename}',
+                    "Content-Length": str(len(pdf_bytes)),
+                    "X-Content-Type-Options": "nosniff",
+                    "Cache-Control": "private, max-age=3600",
+                },
+            )
+        except Exception as e:
+            return jsonify({"error": f"PDF generation failed: {e}"}), 500
+            
     pack = db.get_policy_pack(pack_id)
     if not pack:
         return jsonify({"error": "Policy pack not found"}), 404
@@ -2785,7 +2851,7 @@ Return ONLY valid JSON:
         db.set_agent_status("reporting", "Generating comprehensive compliance report...", "compliance_report")
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
             HumanMessage(content=prompt),
         ])
@@ -2863,7 +2929,7 @@ Return ONLY valid JSON:
         db.set_agent_status("reporting", "Generating risk assessment report...", "risk_report")
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
             HumanMessage(content=prompt),
         ])
@@ -2947,7 +3013,7 @@ Return ONLY valid JSON:
         db.set_agent_status("reporting", "Answering compliance/risk query...", "chat_report")
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
             HumanMessage(content=prompt),
         ])
@@ -3041,7 +3107,7 @@ Return ONLY valid JSON:
     try:
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         llm = ChatGroq(model_name=model_name)
-        response = llm.invoke([
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
             HumanMessage(content=prompt),
         ])
@@ -3184,8 +3250,9 @@ def chat_reporting():
         "- **POLICY GENERATION WORKFLOW:** If the user asks to generate or draft a policy, DO NOT draft the policy yourself. Follow this exact workflow:\n"
         "   1. Ask clarifying questions to get the topic and sector (if not provided).\n"
         "   2. Use the `suggest_frameworks` and `suggest_risks` tools to find relevant compliance frameworks and risk factors for their topic.\n"
-        "   3. Present the suggested frameworks and risks to the user and ask for their approval to proceed.\n"
+        "   3. Present the suggested frameworks and risks to the user and ask for their approval to proceed. YOU MUST output an interactive form using this exact XML format: <INTERACTIVE_FORM>{\"title\": \"Select Frameworks & Risks\", \"description\": \"Choose the relevant items for your policy\", \"multi_select\": true, \"options\": [{\"id\": \"ISO_27001\", \"label\": \"ISO/IEC 27001:2022\"}]}</INTERACTIVE_FORM>\n"
         "   4. Once the user confirms, use the `trigger_policy_generation` tool to hand off the work to the background micro-agents. Pass the confirmed framework IDs and risk IDs to the tool.\n"
+        "   5. CRITICAL: When the `trigger_policy_generation` tool returns a success message containing a `<POLICY_CARD>` token, YOU MUST INCLUDE THAT EXACT `<POLICY_CARD>...</POLICY_CARD>` token IN YOUR FINAL RESPONSE! Do not strip it out, or the UI will fail to display the policy.\n"
         "- Be concise, specific, and cite framework controls or policy sections where applicable.\n"
         "- Do not fabricate standards or controls — only reference what appears in the provided context.\n"
         "- When drawing from multiple sources, indicate clearly whether a point comes from an internal policy or an external regulatory source."
@@ -3226,6 +3293,17 @@ def chat_reporting():
             final_message = result["messages"][-1].content
         finally:
             db.clear_agent_status("reporting")
+            
+        session_id = body.get("session_id")
+        if session_id:
+            updated_history = history + [
+                {"role": "user", "content": message},
+                {"role": "assistant", "content": final_message}
+            ]
+            try:
+                db.save_chat_session(session_id, updated_history)
+            except Exception as e:
+                print(f"Failed to save chat session: {e}")
         
         return jsonify({"response": final_message, "citations": citations_out})
     except Exception as e:
@@ -3368,8 +3446,8 @@ Return ONLY valid JSON with exactly these keys:
 }}"""
 
     try:
-        llm = ChatGroq(model_name=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"))
-        response = llm.invoke([
+        llm = get_groq_llm()
+        response = safe_invoke(llm, [
             SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
             HumanMessage(content=prompt),
         ])
@@ -3416,6 +3494,73 @@ def reset_prompt_amendments():
         config[agent_key]["last_updated"] = datetime.now(timezone.utc).isoformat()
     _save_prompt_config(config)
     return jsonify({"status": "ok", "message": "All agent prompt amendments have been reset."})
+
+
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+import io
+import re as _re
+import markdown
+from flask import Response
+
+@app.route("/api/policies/download/<policy_id>", methods=["GET"])
+def download_policy_pdf(policy_id):
+    policy = db.db["policy_documents"].find_one({"policy_id": policy_id})
+    if not policy:
+        return jsonify({"error": "Policy not found"}), 404
+        
+    try:
+        from report_pdf import build_markdown_policy_pdf
+        pdf_bytes = build_markdown_policy_pdf(policy)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to build PDF: {e}"}), 500
+    
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{policy_id}.pdf"',
+            "Content-Length": str(len(pdf_bytes))
+        }
+    )
+
+@app.route("/api/policies/email/<policy_id>", methods=["POST"])
+def email_policy(policy_id):
+    policy = db.db["policy_documents"].find_one({"policy_id": policy_id})
+    if not policy:
+        return jsonify({"error": "Policy not found"}), 404
+        
+    try:
+        from email_service import send_email, get_default_recipients
+        import markdown
+        
+        body = f"A new policy '{policy.get('title')}' has been generated.\n\nPlease find the attached PDF."
+        html_body = f"<p>A new policy <b>'{policy.get('title')}'</b> has been generated.</p><p>Please find the attached PDF document.</p>"
+        
+        try:
+            from report_pdf import build_markdown_policy_pdf
+            pdf_bytes = build_markdown_policy_pdf(policy)
+        except Exception as e:
+            print(f"Error generating PDF for email: {e}")
+            pdf_bytes = b""
+        
+        recipients = get_default_recipients()
+        if not recipients:
+            return jsonify({"error": "No recipients configured. Please set EMAIL_RECIPIENTS in .env"}), 400
+            
+        attachments = [(f"{policy_id}.pdf", pdf_bytes)] if pdf_bytes else None
+        result = send_email(recipients, f"New Policy: {policy.get('title')}", html_body, body, attachments=attachments)
+        if result.get("ok"):
+            return jsonify({"status": "success"})
+        else:
+            return jsonify({"error": result.get("error", "Unknown error")}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

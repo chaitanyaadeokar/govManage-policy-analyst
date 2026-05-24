@@ -526,6 +526,13 @@ class MongoGovDB:
             self.frameworks_col.find_one({"framework_id": framework_id})
         )
 
+    def get_controls_for_framework(self, framework_id: str) -> List[Dict[str, Any]]:
+        """Return the controls for a specific framework."""
+        fw = self.get_framework(framework_id)
+        if fw and "controls" in fw:
+            return fw["controls"]
+        return []
+
     def get_controls_for_event(self, keywords: List[str], limit: int = 8) -> List[Dict[str, Any]]:
         """
         Find controls whose keyword list overlaps with the supplied keywords.
@@ -938,6 +945,16 @@ class MongoGovDB:
         """Merge *updates* into an existing policy pack document."""
         self.policy_packs_col.update_one({"pack_id": pack_id}, {"$set": updates})
 
+
+    def get_chat_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        return self._strip_id(self.chat_sessions_col.find_one({"session_id": session_id}))
+
+    def save_chat_session(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
+        self.chat_sessions_col.update_one(
+            {"session_id": session_id},
+            {"$set": {"messages": messages}, "$setOnInsert": {"session_id": session_id}},
+            upsert=True
+        )
 
 db = MongoGovDB()
 

@@ -1,0 +1,51 @@
+{
+    "event_id": "evt_db7b6b8f",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure vendor due-diligence controls are not bypassed during onboarding. All third\u2011party SaaS systems must undergo mandatory security assessment before production use.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "NIST_800_161",
+            "ISO_27036_1",
+            "SOC_2",
+            "FFIEC_CAT",
+            "GDPR"
+        ],
+        "selected_risks": [
+            "RISK-011",
+            "RISK-012",
+            "RISK-009",
+            "RISK-008"
+        ]
+    },
+    "tvi_score": 0.78,
+    "risk_level": "High",
+    "identified_risks": [
+        {
+            "risk_name": "Data Exfiltration via SaaS Integration",
+            "severity": 9,
+            "justification": "Third\u2011party SaaS platforms often host sensitive financial data. If due\u2011diligence controls are bypassed, attackers can exploit insecure APIs or misconfigured storage, leading to data breaches. Threat vector: credential theft \u2192 API abuse \u2192 data exfiltration. Estimated breach probability 35%."
+        },
+        {
+            "risk_name": "Compliance Violation (GDPR/NIST/FFIEC)",
+            "severity": 8,
+            "justification": "Policy mandates mandatory security assessments before production use. Skipping assessments can cause non\u2011conformance with GDPR data\u2011subject rights, NIST 800\u2011161 supply\u2011chain requirements, and FFIEC CAT controls, exposing the firm to fines up to 4% of annual revenue. Threat vector: audit failure \u2192 regulatory penalty. Estimated non\u2011compliance likelihood 30%."
+        },
+        {
+            "risk_name": "Operational Downtime from Vendor Failure",
+            "severity": 7,
+            "justification": "Financial services rely on continuous availability. Unvetted SaaS vendors may suffer outages or ransomware attacks, causing service interruption. Threat vector: vendor ransomware \u2192 loss of access to critical systems. Estimated downtime risk 25%."
+        },
+        {
+            "risk_name": "Supply\u2011Chain Attack on Third\u2011Party Vendor",
+            "severity": 6,
+            "justification": "A compromised vendor can inject malicious code into the SaaS product (e.g., software\u2011supply\u2011chain attack), affecting all downstream users. Threat vector: compromised build pipeline \u2192 malicious update \u2192 credential harvesting. Estimated occurrence 20%."
+        }
+    ],
+    "risk_narrative": "The high\u2011risk policy on third\u2011party SaaS onboarding exposes the firm to data exfiltration, regulatory breaches, service outages, and supply\u2011chain attacks. TVI was calculated as (sum of severities \u00f7 (max severity\u202f\u00d7\u202fcount)) \u00d7 risk\u2011level factor (1.1 for 'High'), yielding (30 \u00f7 (10\u202f\u00d7\u202f4))\u202f\u00d7\u202f1.1\u202f=\u202f0.78, reflecting a substantial overall threat exposure.",
+    "governance_maturity_score": 1.0
+}

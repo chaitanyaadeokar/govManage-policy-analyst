@@ -1,0 +1,13 @@
+{
+    "path_taken": "Block Path",
+    "action_taken": "Auto Blocked",
+    "reasoning": "Compliance evaluation failed (Authorized=False) due to missing role and clearance information, which mandates an automatic block. Additionally, the policy analyst flagged a conflict and the risk assessment rated the event as High risk, reinforcing the need to block the event.",
+    "event_id": "evt_db7b6b8f",
+    "tvi_score": 0.78,
+    "risk_level": "High",
+    "audit_trace": [
+        "Policy Output: Conflict=True",
+        "Compliance Output: Auth=False",
+        "Decision Engine: Compliance evaluation failed (Authorized=False) due to missing role and clearance information, which mandates an automatic block. Additionally, the policy analyst flagged a conflict and the risk assessment rated the event as High risk, reinforcing the need to block the event."
+    ]
+}

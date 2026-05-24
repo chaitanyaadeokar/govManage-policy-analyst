@@ -1,0 +1,13 @@
+{
+    "path_taken": "Block Path",
+    "action_taken": "Auto Blocked",
+    "reasoning": "Compliance evaluation indicates Unauthorized due to missing role/clearance data, lack of vendor due\u2011diligence, and absent AI risk governance. Additionally, the Policy Analyst flagged a conflict and the Risk Assessment rated the event as High risk with a TVI score of 0.82. The combination of unauthorized status and high conflict/risk mandates an automatic block.",
+    "event_id": "evt_caad7685",
+    "tvi_score": 0.82,
+    "risk_level": "High",
+    "audit_trace": [
+        "Policy Output: Conflict=True",
+        "Compliance Output: Auth=False",
+        "Decision Engine: Compliance evaluation indicates Unauthorized due to missing role/clearance data, lack of vendor due\u2011diligence, and absent AI risk governance. Additionally, the Policy Analyst flagged a conflict and the Risk Assessment rated the event as High risk with a TVI score of 0.82. The combination of unauthorized status and high conflict/risk mandates an automatic block."
+    ]
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Brain, Activity, CheckCircle2, ChevronDown, X } from 'lucide-react';
 import { API_URL } from '../types';
 

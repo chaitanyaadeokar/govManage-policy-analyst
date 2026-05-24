@@ -26,7 +26,7 @@ _scheduler: Optional[Any] = None  # BackgroundScheduler instance
 # ---------------------------------------------------------------------------
 
 def get_schedule_config() -> Dict[str, str]:
-    day = os.getenv("EMAIL_WEEKLY_DAY", "monday").strip().lower()
+    day = os.getenv("EMAIL_WEEKLY_DAY", "monday").strip().lower()[:3]
     time_str = os.getenv("EMAIL_WEEKLY_TIME", "08:00").strip()
     try:
         hour, minute = [int(x) for x in time_str.split(":")[:2]]

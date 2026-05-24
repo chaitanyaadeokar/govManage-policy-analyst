@@ -129,7 +129,7 @@ def trigger_policy_generation(
     selected_risks: List[str] = None
 ) -> str:
     """
-    Triggers the autonomous background generation of a new policy document/pack. 
+    Triggers the synchronous generation of a new policy document/pack. 
     Use this ONLY when the user explicitly asks you to generate a new policy AND you have already gathered enough context and confirmed the specific frameworks and risks to include.
     Args:
         topic: The subject of the policy (e.g., 'Cloud Security', 'Acceptable Use').
@@ -144,35 +144,167 @@ def trigger_policy_generation(
         selected_risks = []
         
     try:
-        # We manually craft the event payload and drop it into 1_inbox for the agents to pick up
-        event_id = f"evt_{uuid.uuid4().hex[:8]}"
-        payload = {
-            "event_id": event_id,
-            "event_type": "policy_upload",
-            "timestamp": "now",
-            "payload": {
-                "topic": topic,
-                "sector": sector,
-                "additional_instructions": additional_instructions,
-                "source": "ai_policy_chat_tool",
-                "mode": "hybrid",
-                "risk_level": "High",
-                "selected_compliances": selected_frameworks,
-                "selected_risks": selected_risks
-            }
-        }
+        from llm_utils import get_groq_llm, safe_invoke
+        from langchain_core.messages import SystemMessage, HumanMessage
+        from datetime import datetime, timezone
+
+        # ── Agent 1: Fetch real framework controls from DB ─────────────────────
+        compliance_data = []
+        control_matrix_items = []
+        compliance_text_parts = []
+
+        # Try to resolve framework IDs from DB; if not found, treat as names
+        for fw_id in selected_frameworks:
+            fw = db.get_framework(fw_id)
+            if fw:
+                compliance_data.append(fw)
+                controls = fw.get("controls", [])[:6]
+                ctrl_titles = [f"{c['control_id']}: {c['title']}" for c in controls]
+                compliance_text_parts.append(
+                    f"Framework: {fw['name']} ({fw.get('region', 'Global')})\n"
+                    f"Key Controls: {'; '.join(ctrl_titles)}"
+                )
+                for c in controls:
+                    control_matrix_items.append({
+                        "framework": fw["name"],
+                        "framework_id": fw["framework_id"],
+                        "control_id": c["control_id"],
+                        "title": c["title"],
+                        "coverage": "Addressed in Policy"
+                    })
+
+        # Fallback: if no DB matches, still provide the names to the LLM
+        if not compliance_text_parts and selected_frameworks:
+            compliance_text_parts = [f"Framework: {f}" for f in selected_frameworks]
+
+        compliance_context = "\n\n".join(compliance_text_parts)
+
+        # ── Agent 2: Fetch real risk items from DB ─────────────────────────────
+        risk_items = []
+        risk_mapping_items = []
+        risk_text_parts = []
+
+        # Try resolving risk IDs from DB
+        if selected_risks:
+            risk_items = db.get_risk_library_items_by_ids(selected_risks)
+
+        for r in risk_items:
+            risk_text_parts.append(
+                f"[{r['risk_id']}] {r['title']} (Severity: {r['severity']})\n"
+                f"Description: {r['description']}\n"
+                f"Mitigation: {r['mitigation']}"
+            )
+            risk_mapping_items.append({
+                "risk_id": r["risk_id"],
+                "risk_type": r.get("risk_type", ""),
+                "title": r["title"],
+                "severity": r["severity"],
+                "mitigation": r["mitigation"]
+            })
+
+        # Fallback: if no DB matches, use names
+        if not risk_text_parts and selected_risks:
+            risk_text_parts = [f"Risk: {r}" for r in selected_risks]
+
+        risk_context = "\n\n".join(risk_text_parts)
+
+        # ── Agent 3: LLM Policy Generation ────────────────────────────────────
+        instructions_context = f"\nADDITIONAL INSTRUCTIONS:\n{additional_instructions}\n" if additional_instructions else ""
+        prompt = f"""You are an expert governance policy writer and GRC specialist. Draft a comprehensive IT Governance / Compliance Policy.
+Topic: {topic}
+Sector: {sector}
+{instructions_context}
+COMPLIANCE FRAMEWORKS TO ADDRESS:
+{compliance_context if compliance_context else "Use general best-practice frameworks."}
+
+RISKS TO MITIGATE:
+{risk_context if risk_context else "Apply standard risk mitigation practices."}
+
+Return ONLY the raw Markdown text of the policy. Start with a title heading (# Title).
+You MUST include EXACTLY the following sections, using clear markdown headings (##):
+- Objective (why this policy exists and what it achieves)
+- Scope (who and what systems/processes this applies to)
+- Policy Statements (at least 5 specific, enforceable rules)
+- Procedures (at least 3 procedures, each with actionable steps)
+- Governance Structure (at least 3 roles and their key responsibilities)
+- Enforcement (consequences for non-compliance)
+- Review Cycle (how often this policy is reviewed)
+
+CRITICAL REQUIREMENT: Do NOT include any placeholder metadata at the top or bottom of the document. Absolutely NO "Effective Date", "Version", "Approved By", "Board of Directors", or "Risk Committee" blocks. End the document immediately after the Review Cycle section.
+"""
+        llm = get_groq_llm()
         
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        inbox_dir = os.path.join(base_dir, "agents_micro", "shared_queues", "1_inbox")
-        os.makedirs(inbox_dir, exist_ok=True)
-        file_path = os.path.join(inbox_dir, f"{event_id}.json")
-        
-        with open(file_path, "w") as f:
-            json.dump(payload, f, indent=4)
+        db.set_agent_status("reporting", f"Drafting Policy: {topic[:15]}...", "policy_gen")
+        try:
+            response = safe_invoke(llm, [
+                SystemMessage(content="You output pure markdown documents. No introductory text. No metadata footers."),
+                HumanMessage(content=prompt)
+            ])
+        finally:
+            db.clear_agent_status("reporting")
             
-        return json.dumps({
-            "status": "success", 
-            "message": f"Successfully queued policy generation for '{topic}' in the '{sector}' sector. The background micro-agents (Policy Repo, Compliance, Risk) have started synthesizing the pack using {len(selected_frameworks)} frameworks and {len(selected_risks)} risks."
-        })
+        markdown_text = response.content.strip()
+        if markdown_text.startswith("```markdown"):
+            markdown_text = markdown_text[11:].strip()
+        if markdown_text.startswith("```"):
+            markdown_text = markdown_text[3:].strip()
+        if markdown_text.endswith("```"):
+            markdown_text = markdown_text[:-3].strip()
+
+        # ── Append Compliance Control Matrix table ─────────────────────────────
+        if control_matrix_items:
+            markdown_text += "\n\n## Compliance Control Matrix\n\n"
+            markdown_text += "| Framework | Control ID | Control Title | Coverage |\n"
+            markdown_text += "|-----------|------------|---------------|----------|\n"
+            for c in control_matrix_items:
+                fw_name = c.get("framework", "")
+                ctrl_id = c.get("control_id", "")
+                ctrl_title = c.get("title", "")
+                coverage = c.get("coverage", "Addressed in Policy")
+                markdown_text += f"| {fw_name} | {ctrl_id} | {ctrl_title} | {coverage} |\n"
+
+        # ── Append Risk Mitigation Mapping table ───────────────────────────────
+        if risk_mapping_items:
+            markdown_text += "\n\n## Risk Mitigation Mapping\n\n"
+            markdown_text += "| Risk ID | Risk | Severity | Mitigation Strategy |\n"
+            markdown_text += "|---------|------|----------|---------------------|\n"
+            for r in risk_mapping_items:
+                rid = r.get("risk_id", "")
+                rtitle = r.get("title", "")
+                rseverity = r.get("severity", "")
+                rmitigation = r.get("mitigation", "")
+                markdown_text += f"| {rid} | {rtitle} | {rseverity} | {rmitigation} |\n"
+
+        # ── Build & store document ─────────────────────────────────────────────
+        policy_id = f"pol_{uuid.uuid4().hex[:8]}"
+        title = f"{topic} Policy"
+        # Extract actual title from the first heading
+        first_line = markdown_text.split('\n')[0].strip()
+        if first_line.startswith('# '):
+            title = first_line[2:].strip()
+            
+        doc = {
+            "policy_id": policy_id,
+            "title": title,
+            "sector": sector,
+            "content": markdown_text,
+            "frameworks": [fw.get("name", fw_id) for fw, fw_id in zip(compliance_data, selected_frameworks)] if compliance_data else selected_frameworks,
+            "risks": [r.get("title", "") for r in risk_items] if risk_items else selected_risks,
+            "control_matrix": control_matrix_items,
+            "risk_mapping": risk_mapping_items,
+            "selected_compliance_ids": selected_frameworks,
+            "selected_risk_ids": selected_risks,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "is_active": True,
+        }
+        db.db["policy_documents"].insert_one(doc)
+        
+        card_json = json.dumps({"id": policy_id, "title": title})
+        return f"Policy generated successfully.\n<POLICY_CARD>{card_json}</POLICY_CARD>"
+        
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        db.clear_agent_status("reporting")
         return json.dumps({"status": "error", "message": str(e)})
+

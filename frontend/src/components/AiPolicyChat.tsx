@@ -1,12 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 import { API_URL } from '../types';
-import { MessageSquare, Send, User, Bot, Trash2, Zap, Copy, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, Send, User, Bot, Trash2, Zap, Copy, CheckCircle2, FileText, Download, Mail } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 type Message = {
   role: 'user' | 'assistant';
   content: string;
+};
+
+type InteractiveForm = {
+  title: string;
+  description: string;
+  multi_select: boolean;
+  options: { id: string; label: string }[];
 };
 
 const STARTER_PROMPTS = [
@@ -24,15 +31,107 @@ export default function AiPolicyChat() {
         "Hello! I'm your AI Governance Advisor. I can answer questions about compliance frameworks, draft policy language, explain regulatory requirements, or help you generate complete policy packs.\n\nWhat would you like to explore today?",
     },
   ]);
+  const [sessionId, setSessionId] = useState<string>(() => {
+    const saved = localStorage.getItem('chatSessionId');
+    if (saved) return saved;
+    const newId = `session_${Math.random().toString(36).substring(2, 15)}`;
+    localStorage.setItem('chatSessionId', newId);
+    return newId;
+  });
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [activeForm, setActiveForm] = useState<InteractiveForm | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<Set<string>>(new Set());
+  
+  // Drag state
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages, isTyping, activeForm]);
+
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === 'assistant') {
+      const match = lastMsg.content.match(/<INTERACTIVE_FORM>([\s\S]*?)<\/INTERACTIVE_FORM>/);
+      if (match) {
+        try {
+          const form = JSON.parse(match[1]);
+          setActiveForm(form);
+          setSelectedOptions(new Set());
+          setPosition({ x: 0, y: 0 });
+        } catch (e) {
+          console.error("Failed to parse form", e);
+        }
+      } else {
+        setActiveForm(null);
+      }
+    } else {
+      setActiveForm(null);
+      setPosition({ x: 0, y: 0 });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        setPosition({
+          x: e.clientX - dragStartPos.current.x,
+          y: e.clientY - dragStartPos.current.y
+        });
+      }
+    };
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        const res = await fetch(`${API_URL}/chat/session/${sessionId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load chat session", err);
+      }
+    }
+    fetchSession();
+  }, [sessionId]);
+
+  const handleEmailPolicy = async (policyId: string) => {
+    if (!confirm("Are you sure you want to email this policy to the organization mailing list?")) return;
+    try {
+      const res = await fetch(`${API_URL}/policies/email/${policyId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert("Email sent successfully!");
+      } else {
+        alert("Error sending email: " + data.error);
+      }
+    } catch(e) {
+      alert("Network error sending email.");
+    }
+  };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -64,6 +163,7 @@ export default function AiPolicyChat() {
           policy_text: '',
           history: messages,
           report_type: 'general',
+          session_id: sessionId,
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -87,16 +187,23 @@ export default function AiPolicyChat() {
   };
 
   const clearChat = () => {
+    const newId = `session_${Math.random().toString(36).substring(2, 15)}`;
+    localStorage.setItem('chatSessionId', newId);
+    setSessionId(newId);
     setMessages([
       {
         role: 'assistant',
-        content: "Chat cleared. What would you like to explore?",
+        content: "New conversation started. I have cleared my memory of the previous chat. What would you like to explore?",
       },
     ]);
   };
 
   const copyToClipboard = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
+    const cleanText = text
+      .replace(/<INTERACTIVE_FORM>[\s\S]*?<\/INTERACTIVE_FORM>/g, '')
+      .replace(/<POLICY_CARD>[\s\S]*?<\/POLICY_CARD>/g, '')
+      .trim();
+    navigator.clipboard.writeText(cleanText);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
   };
@@ -170,8 +277,46 @@ export default function AiPolicyChat() {
                   {m.role === 'assistant' ? (
                     <div className="markdown-body prose prose-slate prose-sm sm:prose-base max-w-none">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {m.content}
+                        {m.content.replace(/<INTERACTIVE_FORM>[\s\S]*?<\/INTERACTIVE_FORM>/g, '').replace(/<POLICY_CARD>[\s\S]*?<\/POLICY_CARD>/g, '').trim()}
                       </ReactMarkdown>
+                      {(() => {
+                        const match = m.content.match(/<POLICY_CARD>([\s\S]*?)<\/POLICY_CARD>/);
+                        if (match) {
+                          try {
+                            const card = JSON.parse(match[1]);
+                            return (
+                              <div className="mt-4 p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                                    <FileText size={20} />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-semibold text-slate-800 m-0 leading-tight">{card.title}</h4>
+                                    <p className="text-xs text-slate-500 m-0">Generated Policy Document</p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 mt-3">
+                                  <a 
+                                    href={`${API_URL}/policies/download/${card.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors no-underline"
+                                  >
+                                    <Download size={14} /> Download PDF
+                                  </a>
+                                  <button
+                                    onClick={() => handleEmailPolicy(card.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                  >
+                                    <Mail size={14} /> Review & Email
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          } catch(e) {}
+                        }
+                        return null;
+                      })()}
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap">{m.content}</div>
@@ -214,8 +359,82 @@ export default function AiPolicyChat() {
         </div>
       </div>
 
+      {/* Interactive Form Floating Widget */}
+      {activeForm && (
+        <div 
+          className="absolute bottom-[140px] left-1/2 z-20 w-full max-w-md pointer-events-auto"
+          style={{ transform: `translate(calc(-50% + ${position.x}px), ${position.y}px)` }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-indigo-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 mx-4">
+            <div 
+              className="p-5 pb-3 cursor-grab active:cursor-grabbing bg-slate-50/50 border-b border-slate-100"
+              onMouseDown={(e) => {
+                setIsDragging(true);
+                dragStartPos.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+              }}
+            >
+              <h3 className="text-lg font-bold text-slate-800 mb-1 pointer-events-none">{activeForm.title}</h3>
+              <p className="text-sm text-slate-600 pointer-events-none">{activeForm.description}</p>
+            </div>
+            <div className="p-5 pt-3">
+              <div className="space-y-2 max-h-[35vh] overflow-y-auto custom-scrollbar pr-2">
+                {activeForm.options.map((opt) => (
+                  <label key={opt.id} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${selectedOptions.has(opt.id) ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}`}>
+                    <input 
+                      type={activeForm.multi_select ? "checkbox" : "radio"} 
+                      name="interactive_form_option"
+                      className="mt-0.5 h-4 w-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-600 cursor-pointer"
+                      checked={selectedOptions.has(opt.id)}
+                      onChange={(e) => {
+                        const newSet = new Set(selectedOptions);
+                        if (activeForm.multi_select) {
+                          if (e.target.checked) newSet.add(opt.id);
+                          else newSet.delete(opt.id);
+                        } else {
+                          newSet.clear();
+                          newSet.add(opt.id);
+                        }
+                        setSelectedOptions(newSet);
+                      }}
+                    />
+                    <div>
+                      <div className="font-semibold text-slate-800 text-[13px]">{opt.id}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{opt.label}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+              <button 
+                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                onClick={() => setActiveForm(null)}
+              >
+                Dismiss
+              </button>
+              <button 
+                className="px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-50 disabled:hover:bg-indigo-600 shadow-sm"
+                disabled={selectedOptions.size === 0 || isTyping}
+                onClick={() => {
+
+                  let responseText = `I select: ${Array.from(selectedOptions).join(', ')}`;
+                  if (input.trim()) {
+                    responseText += `\nAdditional instructions: ${input.trim()}`;
+                    setInput('');
+                  }
+                  setActiveForm(null);
+                  handleSend(responseText);
+                }}
+              >
+                Confirm Selection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Input Area (Floating) */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 pointer-events-none z-10">
         <div className="max-w-4xl mx-auto relative pointer-events-auto">
           <div className="relative shadow-lg rounded-2xl bg-white border border-slate-200 focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-50 transition-all">
             <textarea

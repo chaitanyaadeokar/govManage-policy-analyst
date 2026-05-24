@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LayoutDashboard, FileText, UploadCloud, ShieldCheck, AlertTriangle, MessageSquare, Bell, Database, ThumbsUp } from 'lucide-react';
+import { LayoutDashboard, FileText, ShieldCheck, AlertTriangle, MessageSquare, Bell, Database, ThumbsUp } from 'lucide-react';
 import PolicyHub from './components/PolicyHub';
 import GeneratePolicyWizard from './components/GeneratePolicyWizard';
 import DatabaseExplorer from './components/DatabaseExplorer';

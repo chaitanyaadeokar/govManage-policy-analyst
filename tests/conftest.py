@@ -6,7 +6,7 @@ Shared pytest fixtures for govManage test suite.
 Strategy:
 - Patch database.MongoClient BEFORE importing app, so no real MongoDB
   connection is made during tests.
-- Patch ChromaDB, ChatGroq, and crawler so tests are fully offline.
+- Patch ChromaDB, ChatHuggingFace, and crawler so tests are fully offline.
 - Expose a Flask test client as `client`.
 """
 from __future__ import annotations

@@ -15,7 +15,6 @@ function PdfModal({ pack, onClose }: { pack: PolicyPack; onClose: () => void }) 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let url = '';
     setLoading(true);
     setError('');
 
@@ -25,21 +24,28 @@ function PdfModal({ pack, onClose }: { pack: PolicyPack; onClose: () => void }) 
         return res.blob();
       })
       .then(blob => {
-        url = URL.createObjectURL(blob);
-        setPdfUrl(url);
+        const objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
       })
       .catch(err => setError(err.message || 'Failed to load PDF'))
       .finally(() => setLoading(false));
 
-    return () => { if (url) URL.revokeObjectURL(url); };
+    return () => {
+      setPdfUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
   }, [pack.pack_id]);
 
   const handleDownload = () => {
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
-    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
 
   // Close on Escape
@@ -205,8 +211,10 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
-    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
 
   const handleRecalculate = async (e: React.MouseEvent) => {

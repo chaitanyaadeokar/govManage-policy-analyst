@@ -1,42 +1,36 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../types';
-import type { ComplianceFramework, PolicyPack, RiskItem } from '../types';
-import { ShieldCheck, TrendingUp, FileText, AlertTriangle, Zap, ChevronRight, Clock, Globe, Check } from 'lucide-react';
+import type { ComplianceFramework, PolicyPack } from '../types';
+import { FileText, ShieldCheck, AlertTriangle, Globe, Zap, ChevronRight, Clock, Check } from 'lucide-react';
 
 type Props = {
   onNavigate: (tab: string) => void;
 };
 
 export default function PolicyHub({ onNavigate }: Props) {
-  const [kpis, setKpis] = useState({ active_policies: 0, compliance_pct: 0, crawled_sources: 0, risk_index: 0 });
   const [recentPacks, setRecentPacks] = useState<PolicyPack[]>([]);
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
-  const [risks, setRisks] = useState<RiskItem[]>([]);
 
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/kpis`).then(r => r.json()),
       fetch(`${API_URL}/policy-packs`).then(r => r.json()),
       fetch(`${API_URL}/compliance/frameworks`).then(r => r.json()),
-      fetch(`${API_URL}/risk/library`).then(r => r.json()),
-    ]).then(([k, packs, fw, rk]) => {
-      setKpis(k);
+    ]).then(([packs, fw]) => {
       if (Array.isArray(packs)) setRecentPacks(packs.slice(0, 3));
       if (Array.isArray(fw)) setFrameworks(fw);
-      if (Array.isArray(rk)) setRisks(rk);
     }).catch(() => {});
   }, []);
 
-  const highRisks = risks.filter(r => r.severity === 'High').length;
+  // const highRisks = risks.filter(r => r.severity === 'High').length;
 
 
-  const kpiCards = [
-    { label: 'Policy Packs Generated', value: recentPacks.length > 0 ? `${recentPacks.length}+` : kpis.active_policies.toString(), icon: FileText, color: '#4f46e5', bg: '#eef2ff' },
-    { label: 'Compliance Rate', value: `${kpis.compliance_pct}%`, icon: ShieldCheck, color: '#10b981', bg: '#ecfdf5' },
-    { label: 'Compliance Frameworks', value: frameworks.length.toString(), icon: Globe, color: '#2563eb', bg: '#eff6ff' },
-    { label: 'High-Risk Items', value: highRisks.toString(), icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2' },
-  ];
+  // const kpiCards = [
+  //   { label: 'Policy Packs Generated', value: recentPacks.length > 0 ? `${recentPacks.length}+` : kpis.active_policies.toString(), icon: FileText, color: '#4f46e5', bg: '#eef2ff' },
+  //   { label: 'Compliance Rate', value: `${kpis.compliance_pct}%`, icon: ShieldCheck, color: '#10b981', bg: '#ecfdf5' },
+  //   { label: 'Compliance Frameworks', value: frameworks.length.toString(), icon: Globe, color: '#2563eb', bg: '#eff6ff' },
+  //   { label: 'High-Risk Items', value: highRisks.toString(), icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2' },
+  // ];
 
   return (
     <div className="space-y-8 animate-in">
