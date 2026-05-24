@@ -38,6 +38,7 @@ function PdfModal({ pack, onClose }: { pack: PolicyPack; onClose: () => void }) 
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
+    a.target = '_blank';
     a.click();
   };
 
@@ -204,6 +205,7 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
+    a.target = '_blank';
     a.click();
   };
 

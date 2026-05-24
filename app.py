@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, timezone
 import io
 import json
+import logging
 import os
 import re as _re
 import threading
@@ -14,6 +15,8 @@ from typing import Any, Dict, List, Tuple
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from database import db
 from reports import generate_macro_report
@@ -24,14 +27,14 @@ try:
     _chroma_ok = True
 except Exception as _chroma_err:
     _chroma_ok = False
-    print(f"[WARNING] ChromaDB unavailable — semantic search disabled: {_chroma_err}")
+    logging.warning("[WARNING] ChromaDB unavailable — semantic search disabled: %s", _chroma_err)
 
 try:
     from crawler import crawl_source, check_and_crawl_due_sources
     _crawler_ok = True
 except Exception as _crawler_err:
     _crawler_ok = False
-    print(f"[WARNING] Crawler unavailable: {_crawler_err}")
+    logging.warning("[WARNING] Crawler unavailable: %s", _crawler_err)
 
 load_dotenv()
 
@@ -45,7 +48,7 @@ except Exception as e:
     HumanMessage = None
     SystemMessage = None
     AIMessage = None
-    print(f"LangChain import error: {e}")
+    logging.warning("LangChain import error: %s", e)
 
 
 try:
@@ -58,21 +61,49 @@ try:
     _reportlab_ok = True
 except Exception as _rl_err:
     _reportlab_ok = False
-    print(f"[WARNING] reportlab unavailable — PDF generation disabled: {_rl_err}")
+    logging.warning("[WARNING] reportlab unavailable — PDF generation disabled: %s", _rl_err)
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# App setup
+# ---------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)
+
+# Max upload size: 32 MB
+app.config["MAX_CONTENT_LENGTH"] = 32 * 1024 * 1024
+
+# CORS — restrict to configured origins in production
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+CORS(app, origins=_cors_origins)
+
+# Rate limiting — in-memory store (resets on restart)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per minute", "2000 per hour"],
+    storage_uri="memory://",
+)
 
 # Start the weekly email scheduler immediately on Flask boot
 try:
     from scheduler import start_scheduler
     _sched_started = start_scheduler()
     if _sched_started:
-        print("[app] Weekly email scheduler started successfully.")
+        logger.info("[app] Weekly email scheduler started successfully.")
     else:
-        print("[app] Weekly email scheduler failed to start (APScheduler unavailable or already running).")
+        logger.warning("[app] Weekly email scheduler failed to start (APScheduler unavailable or already running).")
 except Exception as _sched_err:
-    print(f"[app] Scheduler import error: {_sched_err}")
+    logger.error("[app] Scheduler import error: %s", _sched_err)
 
 
 # ---------------------------------------------------------------------------
@@ -676,6 +707,7 @@ def get_reports():
 
 
 @app.route("/api/trigger", methods=["POST"])
+@limiter.limit("30 per minute")
 def trigger_event():
     try:
         data = request.get_json(force=True)
@@ -708,7 +740,7 @@ def trigger_event():
         with open(event_file, 'w') as f:
             json.dump({"event_id": event_id, "event_type": event_type, "payload": clean_payload}, f, indent=4)
         
-        print(f"[API] Dispatched {event_id} to Micro-Agent Inbox.")
+        logger.info("[API] Dispatched %s to Micro-Agent Inbox.", event_id)
 
         # 2. Wait for completion token in 7_complete
         complete_dir = os.path.join("agents_micro", "shared_queues", "7_complete")
@@ -803,6 +835,7 @@ def trigger_event():
 
 
 @app.route("/api/analytics/report", methods=["POST"])
+@limiter.limit("15 per minute")
 def analytics_report():
     data = request.json or {}
     report_type = data.get("report_type", "compliance")
@@ -1002,6 +1035,7 @@ def get_risk_library_item(risk_id: str):
 
 
 @app.route("/api/compliance/frameworks/discover", methods=["POST"])
+@limiter.limit("15 per minute")
 def discover_frameworks():
     """
     Use the LLM to discover relevant compliance frameworks for a topic/sector/country.
@@ -1456,6 +1490,7 @@ def _guess_event_type(text: str) -> str:
 
 
 @app.route("/api/chat/message", methods=["POST"])
+@limiter.limit("20 per minute")
 def chat_message():
     """
     Core chat endpoint with RAG + compliance control + risk matrix context.
@@ -1623,6 +1658,7 @@ def get_chat_session(session_id: str):
 # ---------------------------------------------------------------------------
 
 @app.route("/api/policies/generate", methods=["POST"])
+@limiter.limit("15 per minute")
 def generate_policy():
     """
     Generate a governance policy document using the LLM.
@@ -1955,6 +1991,7 @@ def discover_risk():
 # ---------------------------------------------------------------------------
 
 @app.route("/api/policies/suggest-context", methods=["POST"])
+@limiter.limit("20 per minute")
 def suggest_context():
     """
     Suggest relevant compliance frameworks and risk factors based on a topic.
@@ -2149,6 +2186,7 @@ Return ONLY valid JSON — no markdown fences:
 
 
 @app.route("/api/policies/generate-pack", methods=["POST"])
+@limiter.limit("10 per minute")
 def generate_policy_pack():
     """
     Generate a complete Policy Pack using 3-agent logic:
@@ -3381,5 +3419,7 @@ def reset_prompt_amendments():
 
 
 if __name__ == "__main__":
-    port = int(__import__("os").getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.getenv("PORT", "5000"))
+    _debug = os.getenv("FLASK_DEBUG", "0").strip().lower() in ("1", "true", "yes")
+    logger.info("[app] Starting dev server on port %d (debug=%s)", port, _debug)
+    app.run(host="0.0.0.0", port=port, debug=_debug)

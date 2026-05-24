@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Brain, Activity, CheckCircle2, ChevronDown, X } from 'lucide-react';
+import { API_URL } from '../types';
 
 interface ActivityItem {
   queue: string;
@@ -19,7 +20,7 @@ export default function AgentStatusWidget() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/agent-status');
+        const response = await fetch(`${API_URL}/agent-status`);
         if (response.ok) {
           const result = await response.json();
           setData(result);
