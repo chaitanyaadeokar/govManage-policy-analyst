@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List
 
-# Absolute paths — ROOT_DIR must be on sys.path before project imports
+# Absolute paths â€” ROOT_DIR must be on sys.path before project imports
 FILE_PATH = os.path.abspath(__file__)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from database import db
+from llm_utils import get_groq_llm, safe_invoke
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
@@ -44,8 +44,8 @@ class AgentState(TypedDict):
     governance_maturity_score: float
 
 
-model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-llm = ChatGroq(model_name=model_name)
+model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+llm = get_groq_llm()
 
 PROMPT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompt_config.json")
 
@@ -102,7 +102,7 @@ Return ONLY valid JSON with this exact structure (no markdown blocks, no text ou
   "risk_narrative": "<string>"
 }}{amendment}"""
 
-    response = llm.invoke([
+    response = safe_invoke(llm, [
         SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
         HumanMessage(content=prompt),
     ])

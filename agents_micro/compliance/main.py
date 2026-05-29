@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from typing import List, TypedDict
 
-# Absolute paths — ROOT_DIR must be on sys.path before project imports
+# Absolute paths â€” ROOT_DIR must be on sys.path before project imports
 FILE_PATH = os.path.abspath(__file__)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from database import db
+from llm_utils import get_groq_llm, safe_invoke
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
@@ -38,7 +38,7 @@ try:
     _rag_available = True
 except Exception as _rag_err:
     _rag_available = False
-    print(f"[Compliance] ChromaDB import failed — RAG disabled: {_rag_err}")
+    print(f"[Compliance] ChromaDB import failed â€” RAG disabled: {_rag_err}")
 
 
 def _get_compliance_rag_context(event_type: str, description: str) -> str:
@@ -62,14 +62,14 @@ def _get_compliance_rag_context(event_type: str, description: str) -> str:
                 for i, c in enumerate(chunks, 1):
                     meta = c.get("metadata", {})
                     lines.append(
-                        f"[{i}] {meta.get('name', 'Unnamed')} | Sector: {meta.get('sector', '—')} "
-                        f"| Framework: {meta.get('framework', '—')} | Distance: {c.get('distance', '?'):.4f}"
+                        f"[{i}] {meta.get('name', 'Unnamed')} | Sector: {meta.get('sector', 'â€”')} "
+                        f"| Framework: {meta.get('framework', 'â€”')} | Distance: {c.get('distance', '?'):.4f}"
                     )
                     lines.append(f"    {c['text'][:500]}")
                     lines.append("")
                 return "\n".join(lines)
         except Exception as e:
-            print(f"[Compliance] ChromaDB search failed — using fallback: {e}")
+            print(f"[Compliance] ChromaDB search failed â€” using fallback: {e}")
 
     # Fallback: seeded baseline policies
     policies = db.list_policies()
@@ -78,7 +78,7 @@ def _get_compliance_rag_context(event_type: str, description: str) -> str:
         for p in policies:
             lines.append(
                 f"- [{p.get('policy_id', '?')}] {p.get('name', '')} "
-                f"| Sector: {p.get('sector', '—')} | Risk: {p.get('risk', '—')}"
+                f"| Sector: {p.get('sector', 'â€”')} | Risk: {p.get('risk', 'â€”')}"
             )
         return "\n".join(lines)
 
@@ -91,7 +91,7 @@ def _get_compliance_rag_context(event_type: str, description: str) -> str:
 # pull directly applicable controls from the compliance_frameworks collection.
 # ---------------------------------------------------------------------------
 
-# Keyword buckets per event type — must overlap with control .keywords arrays
+# Keyword buckets per event type â€” must overlap with control .keywords arrays
 _EVENT_TYPE_KEYWORDS: dict = {
     "financial_txn": [
         "access control", "authorization", "financial", "approval",
@@ -137,7 +137,7 @@ def _format_controls_context(controls: List[dict]) -> str:
         lines.append(
             f"[{ctrl.get('framework_id', '?')} | {ctrl.get('control_id', '?')}] "
             f"{ctrl.get('title', 'Untitled')} "
-            f"| Category: {ctrl.get('category', '—')} "
+            f"| Category: {ctrl.get('category', 'â€”')} "
             f"| Severity: {ctrl.get('severity', 'medium').upper()}"
         )
         lines.append(f"  {ctrl.get('description', '')[:300]}")
@@ -155,11 +155,11 @@ class AgentState(TypedDict):
     payload: dict
     user_authorized: bool
     compliance_violation: str
-    matched_controls: list   # control IDs checked — informational for audit trail
+    matched_controls: list   # control IDs checked â€” informational for audit trail
 
 
-model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-llm = ChatGroq(model_name=model_name)
+model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+llm = get_groq_llm()
 
 PROMPT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompt_config.json")
 
@@ -213,7 +213,7 @@ Return ONLY valid JSON with these exact keys:
   "matched_controls": list of strings (control IDs you evaluated, e.g. ["5.15", "GOVERN-1.2", "Art.22"])
 }}{amendment}"""
 
-    response = llm.invoke([
+    response = safe_invoke(llm, [
         SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
         HumanMessage(content=prompt),
     ])

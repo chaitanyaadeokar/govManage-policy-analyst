@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
 
-# Absolute paths — ROOT_DIR must be on sys.path before project imports
+# Absolute paths â€” ROOT_DIR must be on sys.path before project imports
 FILE_PATH = os.path.abspath(__file__)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from database import db
+from llm_utils import get_groq_llm, safe_invoke
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
@@ -38,7 +38,7 @@ try:
     _rag_available = True
 except Exception as _rag_err:
     _rag_available = False
-    print(f"[Policy Analyst] ChromaDB import failed — RAG disabled: {_rag_err}")
+    print(f"[Policy Analyst] ChromaDB import failed â€” RAG disabled: {_rag_err}")
 
 
 def _get_policy_rag_context(event_type: str, description: str) -> str:
@@ -60,24 +60,24 @@ def _get_policy_rag_context(event_type: str, description: str) -> str:
                 for i, c in enumerate(chunks, 1):
                     meta = c.get("metadata", {})
                     lines.append(
-                        f"[{i}] {meta.get('name', 'Unnamed')} | Sector: {meta.get('sector', '—')} "
-                        f"| Framework: {meta.get('framework', '—')} | Relevance distance: {c.get('distance', '?'):.4f}"
+                        f"[{i}] {meta.get('name', 'Unnamed')} | Sector: {meta.get('sector', 'â€”')} "
+                        f"| Framework: {meta.get('framework', 'â€”')} | Relevance distance: {c.get('distance', '?'):.4f}"
                     )
                     # cap each chunk to keep prompt size reasonable
                     lines.append(f"    {c['text'][:500]}")
                     lines.append("")
                 return "\n".join(lines)
         except Exception as e:
-            print(f"[Policy Analyst] ChromaDB search failed — using fallback: {e}")
+            print(f"[Policy Analyst] ChromaDB search failed â€” using fallback: {e}")
 
     # Fallback: seeded policies from MongoDB
     policies = db.list_policies()
     if policies:
-        lines = ["BASELINE GOVERNANCE POLICIES (no document uploads yet — upload PDFs for richer context):"]
+        lines = ["BASELINE GOVERNANCE POLICIES (no document uploads yet â€” upload PDFs for richer context):"]
         for p in policies:
             lines.append(
                 f"- [{p.get('policy_id', '?')}] {p.get('name', '')} "
-                f"| Sector: {p.get('sector', '—')} | Risk: {p.get('risk', '—')}"
+                f"| Sector: {p.get('sector', 'â€”')} | Risk: {p.get('risk', 'â€”')}"
             )
         return "\n".join(lines)
 
@@ -97,8 +97,8 @@ class AgentState(TypedDict):
     policy_conflict: bool
 
 
-model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-llm = ChatGroq(model_name=model_name)
+model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+llm = get_groq_llm()
 
 PROMPT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompt_config.json")
 
@@ -140,7 +140,7 @@ Return ONLY valid JSON with these exact keys:
   "policy_analysis_score": float (0.0 to 1.0, where 1.0 = highest conflict probability)
 }}{amendment}"""
 
-    response = llm.invoke([
+    response = safe_invoke(llm, [
         SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown."),
         HumanMessage(content=prompt),
     ])
