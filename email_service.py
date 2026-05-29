@@ -180,35 +180,62 @@ def compose_weekly_report_data() -> Dict[str, Any]:
         if p.get("created_at", "") >= now.isoformat()[:7]  # same month
     ]
 
-    # Frameworks
-    frameworks = db.list_frameworks()
+    # Frameworks (count only those actually used in packs)
+    active_framework_ids = set()
+    for p in packs:
+        for fw_id in p.get("selected_compliance_ids", []):
+            active_framework_ids.add(fw_id)
 
-    # Risk library
-    risks = db.list_risk_library()
-    high_risks = [r for r in risks if r.get("severity") == "High"]
-    medium_risks = [r for r in risks if r.get("severity") == "Medium"]
-    low_risks = [r for r in risks if r.get("severity") == "Low"]
+    # Risk mapping (count only risks actually mapped to active packs)
+    high_risks = []
+    medium_risks = []
+    low_risks = []
+    seen_risk_ids = set()
 
-    # Policy documents
-    docs = db.list_policy_documents()
-    active_docs = [d for d in docs if d.get("is_active", True)]
+    for p in packs:
+        for rm in p.get("risk_mapping", []):
+            rid = rm.get("risk_id")
+            if rid not in seen_risk_ids:
+                seen_risk_ids.add(rid)
+                sev = rm.get("severity", "Medium")
+                if sev == "High":
+                    high_risks.append(rm)
+                elif sev == "Medium":
+                    medium_risks.append(rm)
+                else:
+                    low_risks.append(rm)
+
+    # Policy documents (exclude AI chat docs which use 'policy_id' instead of 'document_id')
+    docs_cursor = db.db["policy_documents"].find({"document_id": {"$exists": True}})
+    active_docs = [d for d in docs_cursor if d.get("is_active", True)]
 
     # Recent governance actions
     actions = list(db.actions_col.find({}, {"_id": 0}).sort("timestamp", -1).limit(20))
     approved = sum(1 for a in actions if a.get("status") == "Approved")
     flagged = sum(1 for a in actions if a.get("status") in ["Rejected", "Review", "Flagged"])
 
-    # Latest compliance reports (from reports collection)
+    # Latest compliance reports
     reports = list(db.reports_col.find({}, {"_id": 0}).sort("generated_at", -1).limit(5))
+    
+    # Calculate average compliance score across active packs
+    avg_compliance = 0
+    if packs:
+        total_score = 0
+        for p in packs:
+            cs = p.get("compliance_score")
+            if cs is None:
+                cs = p.get("policy", {}).get("compliance_scores", {}).get("compliance_readiness", 80)
+            total_score += int(cs)
+        avg_compliance = int(total_score / len(packs))
 
     return {
         "generated_at": now.strftime("%B %d, %Y at %H:%M UTC"),
         "total_policy_packs": total_packs,
         "packs_this_month": len(recent_packs),
         "recent_packs": recent_packs[:5],
-        "total_frameworks": len(frameworks),
-        "framework_list": [f.get("name", "") for f in frameworks[:8]],
-        "total_risks": len(risks),
+        "total_frameworks": len(active_framework_ids),
+        "framework_list": list(active_framework_ids)[:8],
+        "total_risks": len(seen_risk_ids),
         "high_risk_count": len(high_risks),
         "medium_risk_count": len(medium_risks),
         "low_risk_count": len(low_risks),
@@ -218,6 +245,7 @@ def compose_weekly_report_data() -> Dict[str, Any]:
         "actions_approved": approved,
         "actions_flagged": flagged,
         "recent_reports": reports,
+        "calculated_compliance_score": avg_compliance,
     }
 
 
@@ -239,10 +267,12 @@ def build_weekly_report_html(
     pdf_names: list of PDF filenames that were attached to this email.
                If provided, they are listed in the 'Attached Reports' section.
     """
-    compliance_score = max(0, min(100,
-        100 - int(data.get("high_risk_count", 0) * 8)
-            - int(data.get("actions_flagged", 0) * 3)
-    ))
+    compliance_score = data.get("calculated_compliance_score")
+    if compliance_score is None:
+        compliance_score = max(0, min(100,
+            100 - int(data.get("high_risk_count", 0) * 8)
+                - int(data.get("actions_flagged", 0) * 3)
+        ))
     score_color = "#10b981" if compliance_score >= 80 else "#f59e0b" if compliance_score >= 60 else "#ef4444"
 
     high   = data.get("high_risk_count",   0)
