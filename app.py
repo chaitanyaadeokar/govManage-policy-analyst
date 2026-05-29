@@ -13,7 +13,7 @@ import glob
 from typing import Any, Dict, List, Tuple
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -2460,7 +2460,7 @@ Include at least 5 policy_statements, 3 procedures (each with 3-4 steps), and 4 
         pack_doc.setdefault("policy", {})["compliance_scores"] = policy_cs
 
         print(f"[generate-pack] Scores — compliance={pack_scores.get('compliance_score')} "
-              f"risk={pack_scores.get('risk_score')} maturity={pack_scores.get('maturity_level')} "
+              f"risk={pack_scores.get('risk_coverage')} maturity={pack_scores.get('maturity_level')} "
               f"posture={pack_scores.get('risk_posture')}")
     except Exception as scoring_err:
         print(f"[generate-pack] Scoring step failed (non-fatal): {scoring_err}")
@@ -2485,28 +2485,42 @@ Include at least 5 policy_statements, 3 procedures (each with 3-4 steps), and 4 
 def list_policy_packs():
     """List all generated policy packs."""
     packs = db.list_policy_packs()
-    
-    # Also include standalone policy documents from the AI chat
-    docs = db.list_policy_documents(active_only=True)
-    for doc in docs:
-        if "pack_id" not in doc:
-            packs.append({
-                "pack_id": doc.get("policy_id") or doc.get("document_id"),
-                "topic": doc.get("title") or doc.get("name") or "Policy Document",
-                "sector": doc.get("sector", "General"),
-                "risk_level": "AI Chat",
-                "created_at": doc.get("created_at"),
-                "is_chat_doc": True,
-                "policy": {
-                    "name": doc.get("title") or doc.get("name") or "Policy Document",
-                    "compliance_scores": {
-                        "policy_completeness": 100,
-                        "risk_coverage": 100,
-                        "compliance_readiness": 100
-                    }
-                }
-            })
-            
+
+    # Also include AI-chat generated policy documents (stored in policy_documents collection
+    # with a policy_id field starting with 'pol_').  We must NOT include uploaded file
+    # documents which only have a 'document_id' field — those belong to a different workflow.
+    chat_docs_cursor = db.db["policy_documents"].find(
+        {"policy_id": {"$exists": True, "$regex": "^pol_"}},
+        {"_id": 0, "content": 0},
+    ).sort("created_at", -1)
+
+    for doc in chat_docs_cursor:
+        policy_id = doc.get("policy_id")
+        if not policy_id:
+            continue
+        title = doc.get("title") or doc.get("name") or "Policy Document"
+        packs.append({
+            "pack_id": policy_id,
+            "name": title,
+            "topic": title,
+            "sector": doc.get("sector", "General"),
+            "country": doc.get("country", ""),
+            "risk_level": "Low",
+            "mode": "AI Chat",
+            "created_at": doc.get("created_at"),
+            "is_chat_doc": True,
+            "selected_compliance_ids": doc.get("selected_compliance_ids", []),
+            "selected_risk_ids": doc.get("selected_risk_ids", []),
+            "policy": {
+                "name": title,
+                "compliance_scores": {
+                    "policy_completeness": 85,
+                    "risk_coverage": 80,
+                    "compliance_readiness": 80,
+                },
+            },
+        })
+
     # Sort by created_at descending, safely handling None values
     packs.sort(key=lambda x: x.get("created_at") or "", reverse=True)
     return jsonify(packs)
@@ -2516,21 +2530,32 @@ def list_policy_packs():
 def get_policy_pack(pack_id: str):
     """Get a specific policy pack with full details."""
     if pack_id.startswith("pol_"):
-        doc = db.db["policy_documents"].find_one({"policy_id": pack_id})
+        doc = db.db["policy_documents"].find_one({"policy_id": pack_id}, {"_id": 0, "content": 0})
         if not doc:
             return jsonify({"error": "Policy document not found"}), 404
+        title = doc.get("title") or doc.get("name") or "Policy Document"
         return jsonify({
             "pack_id": pack_id,
-            "topic": doc.get("title") or "Policy Document",
+            "name": title,
+            "topic": title,
             "sector": doc.get("sector", "General"),
-            "risk_level": "AI Chat",
+            "country": doc.get("country", ""),
+            "risk_level": "Low",
+            "mode": "AI Chat",
             "created_at": doc.get("created_at"),
+            "is_chat_doc": True,
+            "selected_compliance_ids": doc.get("selected_compliance_ids", []),
+            "selected_risk_ids": doc.get("selected_risk_ids", []),
             "policy": {
-                "name": doc.get("title") or "Policy Document",
-                "compliance_scores": {"policy_completeness": 100, "risk_coverage": 100, "compliance_readiness": 100}
-            }
+                "name": title,
+                "compliance_scores": {
+                    "policy_completeness": 85,
+                    "risk_coverage": 80,
+                    "compliance_readiness": 80,
+                },
+            },
         })
-        
+
     pack = db.get_policy_pack(pack_id)
     if not pack:
         return jsonify({"error": "Policy pack not found"}), 404
@@ -3496,15 +3521,6 @@ def reset_prompt_amendments():
     return jsonify({"status": "ok", "message": "All agent prompt amendments have been reset."})
 
 
-
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-import io
-import re as _re
-import markdown
-from flask import Response
 
 @app.route("/api/policies/download/<policy_id>", methods=["GET"])
 def download_policy_pdf(policy_id):

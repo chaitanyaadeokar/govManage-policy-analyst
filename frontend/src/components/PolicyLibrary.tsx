@@ -283,7 +283,12 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
           <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
             <ShieldCheck size={18} className="text-indigo-600" />
           </div>
-          <RiskBadge level={pack.risk_level} />
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {pack.is_chat_doc && (
+              <span className="text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-100 px-1.5 py-0.5 rounded-md">AI Chat</span>
+            )}
+            <RiskBadge level={pack.risk_level} />
+          </div>
         </div>
 
         {/* Title */}
@@ -297,7 +302,9 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
           <span className="flex items-center gap-1"><Globe size={10} />{pack.sector || '—'}</span>
           <span className="flex items-center gap-1"><Clock size={10} />{date}</span>
           {pack.country && <span className="flex items-center gap-1">📍 {pack.country}</span>}
+          {pack.mode && <span className="flex items-center gap-1 capitalize">{pack.mode} mode</span>}
         </div>
+
 
         {/* Framework badges */}
         {frameworks.length > 0 && (

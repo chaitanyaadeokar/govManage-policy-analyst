@@ -61,13 +61,14 @@ export type PolicyPack = {
   selected_compliance_ids: string[];
   selected_risk_ids: string[];
   policy: GeneratedPolicyContent;
-  risk_mapping: RiskMappingItem[];
-  compliance_matrix: ComplianceMatrixItem[];
-  compliance_frameworks: { id: string; name: string; trusted_url: string; region: string; category: string }[];
+  risk_mapping?: RiskMappingItem[];
+  compliance_matrix?: ComplianceMatrixItem[];
+  compliance_frameworks?: { id: string; name: string; trusted_url: string; region: string; category: string }[];
   full_policy_text?: string;
-  chunk_count: number;
-  chroma_status: string;
+  chunk_count?: number;
+  chroma_status?: string;
   created_at: string;
+  is_chat_doc?: boolean;
   // ── LLM-computed scores (populated by _compute_pack_scores on generation
   //    or by POST /api/policy-packs/<id>/score for existing packs) ────────────
   compliance_score?: number;
@@ -81,14 +82,14 @@ export type PolicyPack = {
 
 export type GeneratedPolicyContent = {
   name: string;
-  policy_id: string;
-  objective: string;
-  scope: string;
-  policy_statements: string[];
-  procedures: { title: string; steps: string[] }[];
-  governance_structure: { role: string; responsibility: string }[];
-  enforcement: string;
-  review_cycle: string;
+  policy_id?: string;
+  objective?: string;
+  scope?: string;
+  policy_statements?: string[];
+  procedures?: { title: string; steps: string[] }[];
+  governance_structure?: { role: string; responsibility: string }[];
+  enforcement?: string;
+  review_cycle?: string;
   compliance_scores: { compliance_readiness: number; risk_coverage: number; policy_completeness: number };
 };
 
