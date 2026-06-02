@@ -1,0 +1,28 @@
+{
+    "event_id": "evt_7f6da63b",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure that vendor due-diligence controls aren\u2019t bypassed during onboarding. All third-party systems must undergo mandatory security assessment.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "NIST_SP_800_53_REV5",
+            "ISO_IEC_27001_2013",
+            "ISO_IEC_27036_1_2014",
+            "GDPR",
+            "FFIEC_OUTSOURCING"
+        ],
+        "selected_risks": [
+            "RISK-012",
+            "RISK-009"
+        ]
+    },
+    "policy_analysis_score": 0.85,
+    "matched_policies": [
+        "Third\u2011Party Vendor Risk Management & SaaS Integration Policy"
+    ],
+    "policy_conflict": true
+}

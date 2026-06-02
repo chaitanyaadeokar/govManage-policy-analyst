@@ -418,6 +418,28 @@ class MongoGovDB:
             return 0.2
         return float(rows[0].get("avg_tvi", 0.2) or 0.2)
 
+    def set_agent_status(self, queue_id: str, message: str, event_id: str):
+        import time
+        self.db["live_agent_status"].update_one(
+            {"queue": queue_id},
+            {"$set": {"message": message, "event_id": event_id, "timestamp": time.time()}},
+            upsert=True
+        )
+
+    def clear_agent_status(self, queue_id: str):
+        import threading, time
+        def _delayed_clear():
+            time.sleep(2)
+            self.db["live_agent_status"].delete_one({"queue": queue_id})
+        threading.Thread(target=_delayed_clear, daemon=True).start()
+
+    def get_active_agent_statuses(self) -> List[Dict[str, Any]]:
+        import time
+        # Return statuses updated in the last 120 seconds
+        cutoff = time.time() - 120
+        cursor = self.db["live_agent_status"].find({"timestamp": {"$gt": cutoff}}, {"_id": 0})
+        return list(cursor)
+
     def get_schema_context(self) -> str:
         """Dynamically returns a prompt context describing the DB structure."""
         schema = """
@@ -503,6 +525,13 @@ class MongoGovDB:
         return self._strip_id(
             self.frameworks_col.find_one({"framework_id": framework_id})
         )
+
+    def get_controls_for_framework(self, framework_id: str) -> List[Dict[str, Any]]:
+        """Return the controls for a specific framework."""
+        fw = self.get_framework(framework_id)
+        if fw and "controls" in fw:
+            return fw["controls"]
+        return []
 
     def get_controls_for_event(self, keywords: List[str], limit: int = 8) -> List[Dict[str, Any]]:
         """
@@ -916,6 +945,16 @@ class MongoGovDB:
         """Merge *updates* into an existing policy pack document."""
         self.policy_packs_col.update_one({"pack_id": pack_id}, {"$set": updates})
 
+
+    def get_chat_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        return self._strip_id(self.chat_sessions_col.find_one({"session_id": session_id}))
+
+    def save_chat_session(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
+        self.chat_sessions_col.update_one(
+            {"session_id": session_id},
+            {"$set": {"messages": messages}, "$setOnInsert": {"session_id": session_id}},
+            upsert=True
+        )
 
 db = MongoGovDB()
 

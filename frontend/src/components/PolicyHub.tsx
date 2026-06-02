@@ -1,42 +1,36 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../types';
-import type { ComplianceFramework, PolicyPack, RiskItem } from '../types';
-import { ShieldCheck, TrendingUp, FileText, AlertTriangle, Zap, ChevronRight, Clock, Globe, Check } from 'lucide-react';
+import type { ComplianceFramework, PolicyPack } from '../types';
+import { FileText, ShieldCheck, AlertTriangle, Globe, Zap, ChevronRight, Clock, Check } from 'lucide-react';
 
 type Props = {
   onNavigate: (tab: string) => void;
 };
 
 export default function PolicyHub({ onNavigate }: Props) {
-  const [kpis, setKpis] = useState({ active_policies: 0, compliance_pct: 0, crawled_sources: 0, risk_index: 0 });
   const [recentPacks, setRecentPacks] = useState<PolicyPack[]>([]);
   const [frameworks, setFrameworks] = useState<ComplianceFramework[]>([]);
-  const [risks, setRisks] = useState<RiskItem[]>([]);
 
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/kpis`).then(r => r.json()),
       fetch(`${API_URL}/policy-packs`).then(r => r.json()),
       fetch(`${API_URL}/compliance/frameworks`).then(r => r.json()),
-      fetch(`${API_URL}/risk/library`).then(r => r.json()),
-    ]).then(([k, packs, fw, rk]) => {
-      setKpis(k);
+    ]).then(([packs, fw]) => {
       if (Array.isArray(packs)) setRecentPacks(packs.slice(0, 3));
       if (Array.isArray(fw)) setFrameworks(fw);
-      if (Array.isArray(rk)) setRisks(rk);
     }).catch(() => {});
   }, []);
 
-  const highRisks = risks.filter(r => r.severity === 'High').length;
+  // const highRisks = risks.filter(r => r.severity === 'High').length;
 
 
-  const kpiCards = [
-    { label: 'Policy Packs Generated', value: recentPacks.length > 0 ? `${recentPacks.length}+` : kpis.active_policies.toString(), icon: FileText, color: '#4f46e5', bg: '#eef2ff' },
-    { label: 'Compliance Rate', value: `${kpis.compliance_pct}%`, icon: ShieldCheck, color: '#10b981', bg: '#ecfdf5' },
-    { label: 'Compliance Frameworks', value: frameworks.length.toString(), icon: Globe, color: '#2563eb', bg: '#eff6ff' },
-    { label: 'High-Risk Items', value: highRisks.toString(), icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2' },
-  ];
+  // const kpiCards = [
+  //   { label: 'Policy Packs Generated', value: recentPacks.length > 0 ? `${recentPacks.length}+` : kpis.active_policies.toString(), icon: FileText, color: '#4f46e5', bg: '#eef2ff' },
+  //   { label: 'Compliance Rate', value: `${kpis.compliance_pct}%`, icon: ShieldCheck, color: '#10b981', bg: '#ecfdf5' },
+  //   { label: 'Compliance Frameworks', value: frameworks.length.toString(), icon: Globe, color: '#2563eb', bg: '#eff6ff' },
+  //   { label: 'High-Risk Items', value: highRisks.toString(), icon: AlertTriangle, color: '#dc2626', bg: '#fef2f2' },
+  // ];
 
   return (
     <div className="space-y-8 animate-in">
@@ -69,21 +63,6 @@ export default function PolicyHub({ onNavigate }: Props) {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {kpiCards.map((k, i) => (
-          <div key={i} className="kpi-card" style={{ '--kpi-color': k.color } as React.CSSProperties}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: k.bg }}>
-                <k.icon size={18} style={{ color: k.color }} />
-              </div>
-              <TrendingUp size={14} className="text-slate-300" />
-            </div>
-            <div className="text-2xl font-black" style={{ color: k.color }}>{k.value}</div>
-            <div className="text-xs text-slate-500 font-medium mt-1">{k.label}</div>
-          </div>
-        ))}
-      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Quick Actions */}

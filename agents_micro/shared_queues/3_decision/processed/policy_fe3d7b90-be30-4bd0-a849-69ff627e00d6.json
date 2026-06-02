@@ -1,0 +1,14 @@
+{
+    "event_id": "fe3d7b90-be30-4bd0-a849-69ff627e00d6",
+    "event_type": "financial_txn",
+    "payload": {
+        "user_id": "E202",
+        "amount": 500.0
+    },
+    "policy_analysis_score": 0.1,
+    "matched_policies": [
+        "Zero Trust Vendor Access Control Policy for Financial Systems",
+        "High RISK-007 Financial Enforce role-based access controls"
+    ],
+    "policy_conflict": false
+}

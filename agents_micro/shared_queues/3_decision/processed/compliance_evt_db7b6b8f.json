@@ -1,0 +1,37 @@
+{
+    "event_id": "evt_db7b6b8f",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure vendor due-diligence controls are not bypassed during onboarding. All third\u2011party SaaS systems must undergo mandatory security assessment before production use.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "NIST_800_161",
+            "ISO_27036_1",
+            "SOC_2",
+            "FFIEC_CAT",
+            "GDPR"
+        ],
+        "selected_risks": [
+            "RISK-011",
+            "RISK-012",
+            "RISK-009",
+            "RISK-008"
+        ]
+    },
+    "user_authorized": false,
+    "compliance_violation": "Authorization check failed: user role and clearance information are missing, so the action cannot be verified against required role/clearance policies.",
+    "matched_controls": [
+        "GOVERN-1.1",
+        "OECD-1.5",
+        "OECD-2.3",
+        "5.1",
+        "5.36",
+        "RMF-7",
+        "DOD-001",
+        "NIST-AI-01"
+    ]
+}

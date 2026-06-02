@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { API_URL } from '../types';
 import type { ComplianceFramework, RiskItem } from '../types';
-import { Database, Shield, AlertTriangle, X, ChevronRight, CheckCircle2, Server, FolderTree } from 'lucide-react';
+import { Shield, AlertTriangle, X, ChevronRight, CheckCircle2, FolderTree, Server } from 'lucide-react';
 
 export default function DatabaseExplorer() {
   const [activeTab, setActiveTab] = useState<'frameworks' | 'risks'>('frameworks');

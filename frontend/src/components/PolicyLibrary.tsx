@@ -15,7 +15,6 @@ function PdfModal({ pack, onClose }: { pack: PolicyPack; onClose: () => void }) 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    let url = '';
     setLoading(true);
     setError('');
 
@@ -25,20 +24,28 @@ function PdfModal({ pack, onClose }: { pack: PolicyPack; onClose: () => void }) 
         return res.blob();
       })
       .then(blob => {
-        url = URL.createObjectURL(blob);
-        setPdfUrl(url);
+        const objectUrl = URL.createObjectURL(blob);
+        setPdfUrl(objectUrl);
       })
       .catch(err => setError(err.message || 'Failed to load PDF'))
       .finally(() => setLoading(false));
 
-    return () => { if (url) URL.revokeObjectURL(url); };
+    return () => {
+      setPdfUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
   }, [pack.pack_id]);
 
   const handleDownload = () => {
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
 
   // Close on Escape
@@ -204,7 +211,10 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
     const a = document.createElement('a');
     a.href = `${API_URL}/policy-packs/${pack.pack_id}/pdf`;
     a.download = `${pack.pack_id}.pdf`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
 
   const handleRecalculate = async (e: React.MouseEvent) => {
@@ -273,7 +283,12 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
           <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
             <ShieldCheck size={18} className="text-indigo-600" />
           </div>
-          <RiskBadge level={pack.risk_level} />
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {pack.is_chat_doc && (
+              <span className="text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-100 px-1.5 py-0.5 rounded-md">AI Chat</span>
+            )}
+            <RiskBadge level={pack.risk_level} />
+          </div>
         </div>
 
         {/* Title */}
@@ -287,7 +302,9 @@ function PackCard({ pack: initialPack, onView, onDelete }: {
           <span className="flex items-center gap-1"><Globe size={10} />{pack.sector || '—'}</span>
           <span className="flex items-center gap-1"><Clock size={10} />{date}</span>
           {pack.country && <span className="flex items-center gap-1">📍 {pack.country}</span>}
+          {pack.mode && <span className="flex items-center gap-1 capitalize">{pack.mode} mode</span>}
         </div>
+
 
         {/* Framework badges */}
         {frameworks.length > 0 && (

@@ -1,0 +1,54 @@
+{
+    "event_id": "evt_7f6da63b",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure that vendor due-diligence controls aren\u2019t bypassed during onboarding. All third-party systems must undergo mandatory security assessment.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "NIST_SP_800_53_REV5",
+            "ISO_IEC_27001_2013",
+            "ISO_IEC_27036_1_2014",
+            "GDPR",
+            "FFIEC_OUTSOURCING"
+        ],
+        "selected_risks": [
+            "RISK-012",
+            "RISK-009"
+        ]
+    },
+    "tvi_score": 0.9,
+    "risk_level": "High",
+    "identified_risks": [
+        {
+            "risk_name": "Data Breach via Vendor Access",
+            "severity": 9,
+            "justification": "Financial services data (PII, transaction records) is exposed to third\u2011party SaaS platforms; compromised vendor credentials or insecure APIs can lead to exfiltration, aligning with RISK-012 (vendor security assessment failure)."
+        },
+        {
+            "risk_name": "Regulatory Non\u2011Compliance (GDPR/FFIEC)",
+            "severity": 8,
+            "justification": "Bypassing due\u2011diligence controls may cause violations of GDPR data\u2011subject rights and FFIEC outsourcing requirements, resulting in fines and reputational damage."
+        },
+        {
+            "risk_name": "Operational Downtime from SaaS Failure",
+            "severity": 7,
+            "justification": "Critical financial workflows depend on integrated SaaS services; lack of mandatory security and continuity assessments can cause service outages, impacting transaction processing."
+        },
+        {
+            "risk_name": "Supply\u2011Chain Attack (Malicious Code Injection)",
+            "severity": 8,
+            "justification": "Third\u2011party components may be compromised during development or update cycles, providing a threat vector for malware insertion into the financial institution's environment."
+        },
+        {
+            "risk_name": "Inadequate Vendor Due\u2011Diligence Process Bypass",
+            "severity": 9,
+            "justification": "The policy explicitly mandates security assessments; any bypass (RISK-009) increases the likelihood of onboarding high\u2011risk vendors, amplifying all downstream threats."
+        }
+    ],
+    "risk_narrative": "The policy targets high\u2011impact risks such as data breach via vendor access, regulatory non\u2011compliance, and supply\u2011chain attacks. Threat vectors include compromised SaaS credentials, insecure APIs, and inadequate due\u2011diligence checks. TVI is calculated as (\u03a3 severity\u202f/\u202f(10\u202f\u00d7\u202fN))\u202f\u00d7\u202f1.2 for a High risk level, resulting in a score of 0.90.",
+    "governance_maturity_score": 1.0
+}

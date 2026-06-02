@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, List
 
-# Absolute paths — ROOT_DIR must be on sys.path before project imports
+# Absolute paths â€” ROOT_DIR must be on sys.path before project imports
 FILE_PATH = os.path.abspath(__file__)
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(FILE_PATH)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
 from database import db
+from llm_utils import get_groq_llm, safe_invoke
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SHARED_QUEUES = os.path.join(BASE_DIR, "shared_queues")
@@ -44,8 +44,22 @@ class AgentState(TypedDict):
     governance_maturity_score: float
 
 
-model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-llm = ChatGroq(model_name=model_name)
+model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+llm = get_groq_llm()
+
+PROMPT_CONFIG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompt_config.json")
+
+def _load_prompt_amendment() -> str:
+    """Load the LLM-generated amendment for this agent from shared prompt_config.json."""
+    try:
+        with open(PROMPT_CONFIG_PATH, "r") as f:
+            config = json.load(f)
+        amendment = config.get("risk_assessment", {}).get("amendment", "").strip()
+        if amendment:
+            return f"\n\nADDITIONAL GUIDANCE (from feedback improvements):\n{amendment}"
+    except Exception:
+        pass
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +69,8 @@ llm = ChatGroq(model_name=model_name)
 def analyze_risk(state: AgentState):
     event_type = state.get("event_type", "")
     payload_str = json.dumps(state["payload"], indent=2)
+
+    amendment = _load_prompt_amendment()
 
     prompt = f"""You are an expert Risk Assessment AI for a governance platform.
 
@@ -84,9 +100,9 @@ Return ONLY valid JSON with this exact structure (no markdown blocks, no text ou
   ],
   "tvi_score": <0.0-1.0>,
   "risk_narrative": "<string>"
-}}"""
+}}{amendment}"""
 
-    response = llm.invoke([
+    response = safe_invoke(llm, [
         SystemMessage(content="You are a strict JSON-only API. Output only valid JSON, no markdown, no explanation."),
         HumanMessage(content=prompt),
     ])
@@ -178,6 +194,7 @@ class RiskHandler(FileSystemEventHandler):
                 "governance_maturity_score": 0.0,
             }
 
+            db.set_agent_status("risk_assessment", f"Running TVI assessment on {event_type} ({event_id[:8]})", event_id)
             result = app.invoke(initial_state)
 
             out_filename = f"risk_{event_id}.json"
@@ -188,6 +205,7 @@ class RiskHandler(FileSystemEventHandler):
                 json.dump(result, f, indent=4)
 
             shutil.move(filepath, os.path.join(PROCESSED_DIR, os.path.basename(filepath)))
+            db.clear_agent_status("risk_assessment")
             print(
                 f"[Risk] Completed: {event_id} | "
                 f"TVI={result.get('tvi_score')} ({result.get('risk_level')})"

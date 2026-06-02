@@ -1,0 +1,8 @@
+{
+    "event_id": "fe3d7b90-be30-4bd0-a849-69ff627e00d6",
+    "event_type": "financial_txn",
+    "payload": {
+        "user_id": "E202",
+        "amount": 500.0
+    }
+}

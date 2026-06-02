@@ -1,0 +1,11 @@
+{
+    "event_id": "fe3d7b90-be30-4bd0-a849-69ff627e00d6",
+    "risk_level": "Medium",
+    "compliance_violation": null,
+    "audit_trace": [
+        "Policy Output: Conflict=False",
+        "Compliance Output: Auth=False",
+        "Decision Engine: Compliance evaluation indicates the user (E202) with role 'employee' and clearance 'level_1' is not authorized to initiate a financial transaction of amount 500.0, violating access control policies. Since Authorized=False, the event must be blocked regardless of the medium risk level."
+    ],
+    "final_action": "Auto Blocked"
+}

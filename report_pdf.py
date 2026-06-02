@@ -139,7 +139,7 @@ def _doc(buf: io.BytesIO) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         buf, pagesize=A4,
         leftMargin=_MARGIN, rightMargin=_MARGIN,
-        topMargin=16 * mm,
+        topMargin=35 * mm,      # increased further for larger top-left logo
         bottomMargin=22 * mm,   # extra space for the page-footer band
     )
 
@@ -156,6 +156,19 @@ def _make_footer(accent=None):
     def _draw(canvas, doc):
         canvas.saveState()
         w = A4[0]
+        h = A4[1]
+        
+        # --- Logo at Top Left ---
+        try:
+            # Make the logo larger and move it more to the top-left corner
+            logo_width = 45 * mm
+            logo_height = 20 * mm
+            logo_x = 12 * mm       # Less than standard _MARGIN (20mm) to push it left
+            logo_y = h - 28 * mm   # Move it up 
+            canvas.drawImage("Logo.png", logo_x, logo_y, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass # fail gracefully if Logo.png is not found or invalid
+
         y = 8 * mm
         # Rule
         canvas.setStrokeColor(GRID_CLR)
@@ -166,6 +179,11 @@ def _make_footer(accent=None):
         canvas.setFillColor(MUTED)
         canvas.drawString(_MARGIN, y, 'govManage GRC Platform  |  Confidential')
         canvas.drawRightString(w - _MARGIN, y, f'Page {doc.page}')
+        
+        # AI generated remark at the very bottom
+        canvas.setFont('Helvetica-Oblique', 7)
+        canvas.drawCentredString(w / 2, y - 4 * mm, 'AI generated remark')
+        
         canvas.restoreState()
 
     return _draw
@@ -794,6 +812,127 @@ def build_policy_pack_pdf(pack_doc: Dict[str, Any]) -> bytes:
             ('PADDING',        (0, 0), (-1, -1), 5),
         ]))
         story.append(rtbl)
+
+    footer = _make_footer(INDIGO)
+    doc = _doc(buf)
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    return buf.getvalue()
+
+
+# ── 4. Markdown Policy PDF ────────────────────────────────────────────────────────
+
+def build_markdown_policy_pdf(policy_doc: Dict[str, Any]) -> bytes:
+    """
+    Generate a professional A4 PDF for a raw markdown policy document.
+    """
+    if not _ok:
+        return b""
+
+    policy_doc = clean_text(policy_doc)
+    s   = _make_styles()
+    buf = io.BytesIO()
+    story: list = []
+
+    title    = policy_doc.get('title') or policy_doc.get('name') or "Policy Document"
+    sector   = policy_doc.get('sector', 'General')
+    date_str = policy_doc.get('created_at', '')[:10]
+    policy_id = policy_doc.get('policy_id') or policy_doc.get('document_id') or ''
+    subtitle = f"Sector: {sector}  |  Date: {date_str}  |  ID: {policy_id}"
+
+    _header_band(story, 'Policy Document', title, subtitle, s, INDIGO)
+
+    lines = policy_doc.get("content", "").split("\n")
+    import re
+    
+    table_lines = []
+    
+    def flush_table():
+        if not table_lines:
+            return
+        
+        # Parse table_lines into a ReportLab Table
+        data = []
+        for r_idx, r_line in enumerate(table_lines):
+            # Skip separator line like |---|---|
+            if re.match(r'^\|[\s\-\|:]+\|$', r_line.strip()):
+                continue
+            
+            # Extract cells
+            cells = [c.strip() for c in r_line.strip().strip('|').split('|')]
+            row_data = []
+            for cell in cells:
+                # convert **bold**
+                cell = cell.replace("<br>", "<br/>")
+                cell = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', cell)
+                
+                # if it's the very first line parsed, it's the header
+                if len(data) == 0:
+                    row_data.append(Paragraph(cell, s['th']))
+                else:
+                    row_data.append(Paragraph(cell, s['td']))
+            if row_data:
+                data.append(row_data)
+        
+        if data:
+            cols = max(len(r) for r in data)
+            padded_data = []
+            for row in data:
+                if len(row) < cols:
+                    style = s['th'] if len(padded_data) == 0 else s['td']
+                    row = row + [Paragraph("", style)] * (cols - len(row))
+                padded_data.append(row)
+                
+            colWidths = [CONTENT_W / cols] * cols if cols > 0 else None
+            
+            tbl = Table(padded_data, colWidths=colWidths)
+            tbl.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), INDIGO),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [WHITE, LIGHT_BG]),
+                ('GRID', (0, 0), (-1, -1), 0.4, GRID_CLR),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('PADDING', (0, 0), (-1, -1), 5),
+            ]))
+            story.append(tbl)
+            story.append(Spacer(1, 4 * mm))
+        
+        table_lines.clear()
+
+    for line in lines:
+        stripped = line.strip()
+        
+        if stripped.startswith("|") and stripped.endswith("|") and len(stripped) > 2:
+            table_lines.append(stripped)
+            continue
+        else:
+            flush_table()
+
+        if line.startswith("# "):
+            story.append(Paragraph(line[2:], s['h2']))
+            story.append(Spacer(1, 3 * mm))
+        elif line.startswith("## "):
+            story.append(Paragraph(line[3:], s['h3']))
+            story.append(Spacer(1, 2 * mm))
+        elif line.startswith("### "):
+            story.append(Paragraph(line[4:], s['h3']))
+            story.append(Spacer(1, 2 * mm))
+        elif stripped == "---" or stripped == "***":
+            story.append(Spacer(1, 2 * mm))
+            story.append(HRFlowable(width='100%', thickness=0.5, color=GRID_CLR, spaceAfter=3 * mm))
+        elif line.strip() == "":
+            story.append(Spacer(1, 10))
+        else:
+            # Fix <br> tags and bolding for ReportLab
+            text = line.replace("<br>", "<br/>")
+            text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+            
+            # Extract bullet
+            if re.match(r'^[-*]\s+', text):
+                text = re.sub(r'^[-*]\s+', '', text)
+                story.append(Paragraph(f'*  {text}', s['bullet']))
+            else:
+                story.append(Paragraph(text, s['body']))
+    
+    flush_table()
 
     footer = _make_footer(INDIGO)
     doc = _doc(buf)

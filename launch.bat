@@ -11,7 +11,7 @@ cd /d "%~dp0"
 
 :: Launch Backend API (Flask app.py)
 echo [1/3] Starting Backend API (Flask)...
-start "Backend-API" cmd /c "title Backend-API & uv run python app.py"
+start "Backend-API" cmd /c "title Backend-API & uv run python serve.py"
 timeout /t 2 /nobreak >nul
 
 :: Launch All Micro-Agents
@@ -29,7 +29,7 @@ timeout /t 3 /nobreak >nul
 
 :: Launch Frontend (React/Vite)
 echo [3/3] Starting Frontend (React/Vite)...
-start "Frontend-Vite" cmd /c "title Frontend-Vite & cd /d "%~dp0frontend" && npm run dev"
+start "Frontend-Vite" cmd /c "title Frontend-Vite & cd /d "%~dp0frontend" && npx serve -s dist -p 5173"
 
 echo.
 echo ============================================================

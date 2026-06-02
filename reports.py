@@ -23,7 +23,8 @@ def generate_macro_report(report_type: str) -> dict:
             rejected = sum(1 for t in txns if t.get('status') in ['Rejected', 'Review'])
             raw_data_summary += f"Approved: {approved}, Flagged/Rejected/Review: {rejected}\n"
             
-        llm = ChatGroq(model_name="openai/gpt-oss-120b", temperature=0.1)
+        from llm_utils import get_groq_llm
+        llm = get_groq_llm(temperature=0.1)
         structured_llm = llm.with_structured_output(ReportStructure)
         
         schema_context = db.get_schema_context().replace("{", "{{").replace("}", "}}")
