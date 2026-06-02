@@ -139,7 +139,7 @@ def _doc(buf: io.BytesIO) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         buf, pagesize=A4,
         leftMargin=_MARGIN, rightMargin=_MARGIN,
-        topMargin=16 * mm,
+        topMargin=35 * mm,      # increased further for larger top-left logo
         bottomMargin=22 * mm,   # extra space for the page-footer band
     )
 
@@ -156,6 +156,19 @@ def _make_footer(accent=None):
     def _draw(canvas, doc):
         canvas.saveState()
         w = A4[0]
+        h = A4[1]
+        
+        # --- Logo at Top Left ---
+        try:
+            # Make the logo larger and move it more to the top-left corner
+            logo_width = 45 * mm
+            logo_height = 20 * mm
+            logo_x = 12 * mm       # Less than standard _MARGIN (20mm) to push it left
+            logo_y = h - 28 * mm   # Move it up 
+            canvas.drawImage("Logo.png", logo_x, logo_y, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass # fail gracefully if Logo.png is not found or invalid
+
         y = 8 * mm
         # Rule
         canvas.setStrokeColor(GRID_CLR)
@@ -166,6 +179,11 @@ def _make_footer(accent=None):
         canvas.setFillColor(MUTED)
         canvas.drawString(_MARGIN, y, 'govManage GRC Platform  |  Confidential')
         canvas.drawRightString(w - _MARGIN, y, f'Page {doc.page}')
+        
+        # AI generated remark at the very bottom
+        canvas.setFont('Helvetica-Oblique', 7)
+        canvas.drawCentredString(w / 2, y - 4 * mm, 'AI generated remark')
+        
         canvas.restoreState()
 
     return _draw

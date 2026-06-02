@@ -1,0 +1,34 @@
+{
+    "event_id": "fe3d7b90-be30-4bd0-a849-69ff627e00d6",
+    "event_type": "financial_txn",
+    "payload": {
+        "user_id": "E202",
+        "amount": 500.0
+    },
+    "tvi_score": 0.63,
+    "risk_level": "Medium",
+    "identified_risks": [
+        {
+            "risk_name": "Transaction Fraud",
+            "severity": 8,
+            "justification": "A $500 transfer by user E202 could be a fraudulent transaction if the user credentials are compromised. Threat vectors include credential stuffing, phishing, or insider misuse, leading to unauthorized fund movement."
+        },
+        {
+            "risk_name": "Anti-Money Laundering (AML) Violation",
+            "severity": 7,
+            "justification": "Even modest amounts can be used to layer illicit funds. Without proper monitoring, this transaction may trigger AML red flags such as structuring or rapid repeat transfers."
+        },
+        {
+            "risk_name": "Unauthorized Access / Data Breach",
+            "severity": 6,
+            "justification": "If the user's account data is exposed (e.g., via a data breach), attackers could initiate transactions. The risk escalates with weak authentication mechanisms."
+        },
+        {
+            "risk_name": "Operational Downtime Impact",
+            "severity": 4,
+            "justification": "System outages during processing could cause transaction failures, leading to financial loss, customer dissatisfaction, and potential regulatory reporting obligations."
+        }
+    ],
+    "risk_narrative": "The primary drivers are potential fraud and AML non\u2011compliance, amplified by credential compromise and insufficient monitoring. Combined with the possibility of system downtime, the overall risk profile is moderate, yielding a TVI score of 0.63 (average severity 6.25 normalized to a 0\u20111 scale).",
+    "governance_maturity_score": 1.0
+}

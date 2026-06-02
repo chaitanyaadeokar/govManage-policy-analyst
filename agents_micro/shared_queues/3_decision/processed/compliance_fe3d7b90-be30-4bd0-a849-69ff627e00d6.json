@@ -1,0 +1,20 @@
+{
+    "event_id": "fe3d7b90-be30-4bd0-a849-69ff627e00d6",
+    "event_type": "financial_txn",
+    "payload": {
+        "user_id": "E202",
+        "amount": 500.0
+    },
+    "user_authorized": false,
+    "compliance_violation": "User 'E202' identified as role 'employee' with clearance 'level_1' is not authorized to initiate a financial transaction of amount 500.0. Policy and rule requirements for financial transactions mandate at minimum a 'manager' role or clearance 'level_2', thus this action violates access control and privileged access policies.",
+    "matched_controls": [
+        "5.15",
+        "5.2",
+        "8.2",
+        "FW-007",
+        "FW-001",
+        "RMF-3",
+        "GOVERN-1.2",
+        "OECD-1.5"
+    ]
+}

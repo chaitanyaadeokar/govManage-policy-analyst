@@ -35,8 +35,8 @@ export default function App() {
         <div className="sidebar-glow"></div>
         <div className="p-6 relative z-10 border-b border-slate-800/50">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(79,70,229,0.5)]">
-                <ShieldCheck size={20} className="text-white" />
+             <div className="w-12 h-12 flex items-center justify-center">
+                <img src="/Logo.png" alt="govManage Logo" className="w-full h-full object-contain" />
              </div>
              <div>
                 <h1 className="text-lg font-black text-white tracking-tight leading-none">govManage</h1>
