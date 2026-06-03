@@ -65,13 +65,8 @@ except Exception as _rl_err:
     logging.warning("[WARNING] reportlab unavailable â€” PDF generation disabled: %s", _rl_err)
 
 # ---------------------------------------------------------------------------
-# Logging
+# Logging  (root logger already configured by logger_config.py via serve.py)
 # ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S",
-)
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -94,6 +89,29 @@ limiter = Limiter(
     default_limits=["200 per minute", "2000 per hour"],
     storage_uri="memory://",
 )
+
+_request_logger = logging.getLogger("govmanage.http")
+
+
+@app.before_request
+def _log_request_start():
+    """Stamp the request start time for duration calculation."""
+    request._start_time = time.time()  # type: ignore[attr-defined]
+
+
+@app.after_request
+def _log_request(response):
+    """Log every HTTP request: method, path, status, duration, remote addr."""
+    duration_ms = round((time.time() - getattr(request, "_start_time", time.time())) * 1000, 1)
+    _request_logger.info(
+        "%s %s %s %sms [%s]",
+        request.method,
+        request.path,
+        response.status_code,
+        duration_ms,
+        request.remote_addr,
+    )
+    return response
 
 # Start the weekly email scheduler immediately on Flask boot
 try:

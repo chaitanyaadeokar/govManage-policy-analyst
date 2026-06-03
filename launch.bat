@@ -3,44 +3,62 @@ echo ============================================================
 echo       govManage - Quick Launch
 echo ============================================================
 echo.
-echo Starting all services...
-echo.
 
-:: Change to script directory
+:: Change to script directory (relative anchor — works from any clone path)
 cd /d "%~dp0"
 
-:: Launch Backend API (Flask app.py)
-echo [1/3] Starting Backend API (Flask)...
-start "Backend-API" cmd /c "title Backend-API & uv run python serve.py"
-timeout /t 2 /nobreak >nul
+:: ── Preflight checks ──────────────────────────────────────────
+echo [0/3] Running preflight checks...
 
-:: Launch All Micro-Agents
-echo [2/3] Starting Micro-Agents...
-start "AG-Orchestrator" cmd /c "title AG-Orchestrator & uv run python agents_micro\orchestrator\main.py"
-start "AG-PolicyAnalyst" cmd /c "title AG-PolicyAnalyst & uv run python agents_micro\policy_analyst\main.py"
-start "AG-Compliance" cmd /c "title AG-Compliance & uv run python agents_micro\compliance\main.py"
-start "AG-RiskAssessment" cmd /c "title AG-RiskAssessment & uv run python agents_micro\risk_assessment\main.py"
-start "AG-DecisionEngine" cmd /c "title AG-DecisionEngine & uv run python agents_micro\decision_engine\main.py"
-start "AG-Audit" cmd /c "title AG-Audit & uv run python agents_micro\audit\main.py"
-start "AG-Reporting" cmd /c "title AG-Reporting & uv run python agents_micro\reporting\main.py"
-start "AG-Feedback" cmd /c "title AG-Feedback & uv run python agents_micro\feedback\main.py"
-start "AG-Persistence" cmd /c "title AG-Persistence & uv run python agents_micro\persistence\main.py"
-timeout /t 3 /nobreak >nul
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python is not found on your PATH.
+    echo Please install Python 3.13+ and ensure it is added to PATH.
+    pause & exit /b 1
+)
 
-:: Launch Frontend (React/Vite)
-echo [3/3] Starting Frontend (React/Vite)...
-start "Frontend-Vite" cmd /c "title Frontend-Vite & cd /d "%~dp0frontend" && npx serve -s dist -p 5173"
+npm --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Node.js / npm is not found on your PATH.
+    echo Please install Node.js 18+ from https://nodejs.org/
+    pause & exit /b 1
+)
 
+if not exist ".env" (
+    echo ERROR: .env file not found.
+    echo Please copy .env.example to .env and fill in your API keys.
+    echo   copy .env.example .env
+    pause & exit /b 1
+)
+
+if not exist "frontend\node_modules" (
+    echo Installing frontend dependencies (first-time setup)...
+    cd frontend & npm install & cd ..
+)
+
+echo Preflight checks passed!
+echo.
+
+:: ── 1. Backend API + all micro-agents (single process) ────────
+echo [1/3] Starting Backend API (+ Micro-Agent Pipeline)...
+echo        All 9 agents boot automatically inside the backend process.
+start "Backend" cmd /c "title govManage-Backend & python serve.py"
+timeout /t 4 /nobreak >nul
+
+:: ── 2. Frontend (React/Vite dev server) ───────────────────────
+echo [2/3] Starting Frontend (React/Vite)...
+start "Frontend" cmd /c "title govManage-Frontend & cd /d "%~dp0frontend" && npm run dev"
+
+:: ── Done ──────────────────────────────────────────────────────
 echo.
 echo ============================================================
-echo   All Services Launched!
+echo   All Services Launched!   (2 terminal windows)
 echo ============================================================
 echo.
-echo   Backend API:  http://localhost:5000
-echo   Frontend:     http://localhost:5173
+echo   Backend API + Agents:  http://localhost:5000
+echo   Frontend:              http://localhost:5173
 echo.
-echo   Keep all terminal windows open for the system to work!
-echo   Close individual windows to stop services.
+echo   Run close.bat to shut everything down cleanly.
 echo ============================================================
 echo.
 pause

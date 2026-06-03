@@ -56,10 +56,9 @@ The system is designed with a clear separation of concerns, enabling high throug
 ## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
-- **Python 3.13+**
-- **Node.js 18+**
+- **Python 3.13+** — [python.org](https://www.python.org/downloads/)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
 - **MongoDB** (Atlas account or local instance)
-- **uv** package manager (`pip install uv`)
 
 ### 1. Repository Setup
 
@@ -79,14 +78,23 @@ cp .env.example .env
 
 ### 3. Install Dependencies
 
-**Backend:**
+**Backend (Python):**
 ```bash
-uv sync  # Recommended
-# OR
+# Recommended: use a virtual environment
+python -m venv .venv
+
+# Activate it:
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-**Frontend:**
+> **Windows shortcut:** run `act.bat` — it creates the venv and installs everything automatically.
+
+**Frontend (Node):**
 ```bash
 cd frontend
 npm install
@@ -95,32 +103,22 @@ cd ..
 
 ### 4. Launch the Platform
 
-**Windows (Automated):**
+**Windows:**
 ```bat
 launch.bat
 ```
+This opens all backend, agent, and frontend services in separate terminal windows.
+To stop everything: `close.bat`
 
-**Linux/macOS (Manual):**
-You must run the backend, the frontend, and the micro-agents concurrently.
-
+**Linux / macOS:**
 ```bash
-# Terminal 1 — Backend API
-FLASK_DEBUG=1 python app.py
-
-# Terminal 2–10 — Multi-Agent Pipeline
-python agents_micro/orchestrator/main.py
-python agents_micro/policy_analyst/main.py
-python agents_micro/compliance/main.py
-python agents_micro/risk_assessment/main.py
-python agents_micro/decision_engine/main.py
-python agents_micro/audit/main.py
-python agents_micro/reporting/main.py
-python agents_micro/feedback/main.py
-python agents_micro/persistence/main.py
-
-# Terminal 11 — Frontend
-cd frontend && npm run dev
+chmod +x launch.sh stop.sh
+./launch.sh
 ```
+This launches all services in separate terminal windows (gnome-terminal / xterm / macOS Terminal.app).  
+To stop everything: `./stop.sh`
+
+> **Headless / no GUI fallback:** if no GUI terminal is found, processes run in the background and log to `logs/`.
 
 * **Frontend UI:** `http://localhost:5173`
 * **Backend API:** `http://localhost:5000`
