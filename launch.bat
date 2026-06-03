@@ -1,19 +1,18 @@
 @echo off
 echo ============================================================
 echo       govManage - Quick Launch
+echo Backend serves both the API and the React production build.
 echo ============================================================
 echo.
 
-:: Change to script directory (relative anchor — works from any clone path)
 cd /d "%~dp0"
 
 :: ── Preflight checks ──────────────────────────────────────────
-echo [0/3] Running preflight checks...
+echo [0/4] Running preflight checks...
 
 python --version >nul 2>&1
 if errorlevel 1 (
     echo ERROR: Python is not found on your PATH.
-    echo Please install Python 3.13+ and ensure it is added to PATH.
     pause & exit /b 1
 )
 
@@ -25,40 +24,60 @@ if errorlevel 1 (
 )
 
 if not exist ".env" (
-    echo ERROR: .env file not found.
-    echo Please copy .env.example to .env and fill in your API keys.
-    echo   copy .env.example .env
+    echo ERROR: .env not found. Run:  copy .env.example .env
     pause & exit /b 1
 )
-
-if not exist "frontend\node_modules" (
-    echo Installing frontend dependencies (first-time setup)...
-    cd frontend & npm install & cd ..
-)
-
 echo Preflight checks passed!
 echo.
 
-:: ── 1. Backend API + all micro-agents (single process) ────────
-echo [1/3] Starting Backend API (+ Micro-Agent Pipeline)...
-echo        All 9 agents boot automatically inside the backend process.
-start "Backend" cmd /c "title govManage-Backend & python serve.py"
-timeout /t 4 /nobreak >nul
+:: ── Backend venv setup ────────────────────────────────────────
+echo [1/4] Checking backend virtual environment...
+if not exist "backend\.venv\Scripts\python.exe" (
+    echo   Creating Python virtual environment in backend\.venv...
+    python -m venv backend\.venv
+    echo   Installing backend dependencies (this may take a minute)...
+    backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+    backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+    echo   Backend environment ready.
+) else (
+    echo   Backend environment already exists - skipping.
+)
+echo.
 
-:: ── 2. Frontend (React/Vite dev server) ───────────────────────
-echo [2/3] Starting Frontend (React/Vite)...
-start "Frontend" cmd /c "title govManage-Frontend & cd /d "%~dp0frontend" && npm run dev"
+:: ── Build frontend if dist is missing ─────────────────────────
+echo [2/4] Checking frontend build...
+if not exist "frontend\dist\index.html" (
+    echo   Building frontend (React/Vite)...
+    if not exist "frontend\node_modules" (
+        echo   Installing frontend dependencies...
+        cd frontend & npm install & cd ..
+    )
+    cd frontend & npm run build & cd ..
+    echo   Frontend built - frontend\dist\
+) else (
+    echo   Build already exists (frontend\dist\) - skipping.
+    echo   (Run "cd frontend ^&^& npm run build" to rebuild after code changes).
+)
+echo.
 
-:: ── Done ──────────────────────────────────────────────────────
+:: ── Launch backend only ────────────────────────────────────────
+echo [3/4] Starting Backend (Flask + Micro-Agents)...
+start "govManage-Backend" cmd /c "title govManage-Backend & cd /d "%~dp0backend" && .venv\Scripts\python.exe serve.py"
+
+echo.
+echo [4/4] Done!
 echo.
 echo ============================================================
-echo   All Services Launched!   (2 terminal windows)
+echo   govManage is running!
 echo ============================================================
 echo.
-echo   Backend API + Agents:  http://localhost:5000
-echo   Frontend:              http://localhost:5173
+echo   App:        http://localhost:5000
+echo   API health: http://localhost:5000/api/health
 echo.
-echo   Run close.bat to shut everything down cleanly.
+echo   To rebuild frontend after code changes:
+echo     cd frontend ^&^& npm run build
+echo.
+echo   Run close.bat to shut down.
 echo ============================================================
 echo.
 pause

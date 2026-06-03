@@ -15,7 +15,8 @@ def _get_collection():
     except ImportError as exc:
         raise RuntimeError("chromadb is required: pip install chromadb") from exc
 
-    persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+    _default_chroma = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_data")
+    persist_dir = os.getenv("CHROMA_PERSIST_DIR", _default_chroma)
     client = chromadb.PersistentClient(path=persist_dir)
     _collection = client.get_or_create_collection(
         name="policy_chunks",
