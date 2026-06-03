@@ -1,46 +1,83 @@
 @echo off
 echo ============================================================
 echo       govManage - Quick Launch
+echo Backend serves both the API and the React production build.
 echo ============================================================
 echo.
-echo Starting all services...
-echo.
 
-:: Change to script directory
 cd /d "%~dp0"
 
-:: Launch Backend API (Flask app.py)
-echo [1/3] Starting Backend API (Flask)...
-start "Backend-API" cmd /k "uv run python app.py"
-timeout /t 2 /nobreak >nul
+:: ── Preflight checks ──────────────────────────────────────────
+echo [0/4] Running preflight checks...
 
-:: Launch All Micro-Agents
-echo [2/3] Starting Micro-Agents...
-start "AG-Orchestrator" cmd /k "uv run python agents_micro\orchestrator\main.py"
-start "AG-PolicyAnalyst" cmd /k "uv run python agents_micro\policy_analyst\main.py"
-start "AG-Compliance" cmd /k "uv run python agents_micro\compliance\main.py"
-start "AG-RiskAssessment" cmd /k "uv run python agents_micro\risk_assessment\main.py"
-start "AG-DecisionEngine" cmd /k "uv run python agents_micro\decision_engine\main.py"
-start "AG-Audit" cmd /k "uv run python agents_micro\audit\main.py"
-start "AG-Reporting" cmd /k "uv run python agents_micro\reporting\main.py"
-start "AG-Feedback" cmd /k "uv run python agents_micro\feedback\main.py"
-start "AG-Persistence" cmd /k "uv run python agents_micro\persistence\main.py"
-timeout /t 3 /nobreak >nul
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python is not found on your PATH.
+    pause & exit /b 1
+)
 
-:: Launch Frontend (React/Vite)
-echo [3/3] Starting Frontend (React/Vite)...
-start "Frontend-Vite" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+npm --version >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Node.js / npm is not found on your PATH.
+    echo Please install Node.js 18+ from https://nodejs.org/
+    pause & exit /b 1
+)
 
+if not exist ".env" (
+    echo ERROR: .env not found. Run:  copy .env.example .env
+    pause & exit /b 1
+)
+echo Preflight checks passed!
+echo.
+
+:: ── Backend venv setup ────────────────────────────────────────
+echo [1/4] Checking backend virtual environment...
+if not exist "backend\.venv\Scripts\python.exe" (
+    echo   Creating Python virtual environment in backend\.venv...
+    python -m venv backend\.venv
+    echo   Installing backend dependencies (this may take a minute)...
+    backend\.venv\Scripts\python.exe -m pip install --upgrade pip
+    backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+    echo   Backend environment ready.
+) else (
+    echo   Backend environment already exists - skipping.
+)
+echo.
+
+:: ── Build frontend if dist is missing ─────────────────────────
+echo [2/4] Checking frontend build...
+if not exist "frontend\dist\index.html" (
+    echo   Building frontend (React/Vite)...
+    if not exist "frontend\node_modules" (
+        echo   Installing frontend dependencies...
+        cd frontend & npm install & cd ..
+    )
+    cd frontend & npm run build & cd ..
+    echo   Frontend built - frontend\dist\
+) else (
+    echo   Build already exists (frontend\dist\) - skipping.
+    echo   (Run "cd frontend ^&^& npm run build" to rebuild after code changes).
+)
+echo.
+
+:: ── Launch backend only ────────────────────────────────────────
+echo [3/4] Starting Backend (Flask + Micro-Agents)...
+start "govManage-Backend" cmd /c "title govManage-Backend & cd /d "%~dp0backend" && .venv\Scripts\python.exe serve.py"
+
+echo.
+echo [4/4] Done!
 echo.
 echo ============================================================
-echo   All Services Launched!
+echo   govManage is running!
 echo ============================================================
 echo.
-echo   Backend API:  http://localhost:5000
-echo   Frontend:     http://localhost:5173
+echo   App:        http://localhost:5000
+echo   API health: http://localhost:5000/api/health
 echo.
-echo   Keep all terminal windows open for the system to work!
-echo   Close individual windows to stop services.
+echo   To rebuild frontend after code changes:
+echo     cd frontend ^&^& npm run build
+echo.
+echo   Run close.bat to shut down.
 echo ============================================================
 echo.
 pause

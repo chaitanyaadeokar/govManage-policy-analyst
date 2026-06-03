@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { LayoutDashboard, FileText, UploadCloud, ShieldCheck, AlertTriangle, MessageSquare, Bell } from 'lucide-react';
+import { LayoutDashboard, FileText, ShieldCheck, AlertTriangle, MessageSquare, Bell, Database, ThumbsUp } from 'lucide-react';
 import PolicyHub from './components/PolicyHub';
 import GeneratePolicyWizard from './components/GeneratePolicyWizard';
-import UploadAssess from './components/UploadAssess';
+import DatabaseExplorer from './components/DatabaseExplorer';
 import ReportingChat from './components/ReportingChat';
 import AiPolicyChatComponent from './components/AiPolicyChat';
 import PolicyLibrary from './components/PolicyLibrary';
 import EmailSettings from './components/EmailSettings';
+import AgentStatusWidget from './components/AgentStatusWidget';
+import FeedbackDashboard from './components/FeedbackDashboard';
+
 
 
 export default function App() {
@@ -16,10 +19,11 @@ export default function App() {
     { id: 'hub', label: 'Policy Hub', icon: LayoutDashboard },
     { id: 'generate', label: 'Generate Policy', icon: FileText },
     { id: 'library', label: 'Policy Library', icon: FileText },
-    { id: 'upload', label: 'Upload & Assess', icon: UploadCloud },
+    { id: 'database', label: 'Database Explorer', icon: Database },
     { id: 'compliance-report', label: 'Compliance Reports', icon: ShieldCheck },
     { id: 'risk-report', label: 'Risk Reports', icon: AlertTriangle },
     { id: 'chat', label: 'AI Policy Chat', icon: MessageSquare },
+    { id: 'feedback', label: 'Feedback & Improve', icon: ThumbsUp },
     { id: 'settings', label: 'Notifications', icon: Bell },
   ];
 
@@ -31,8 +35,8 @@ export default function App() {
         <div className="sidebar-glow"></div>
         <div className="p-6 relative z-10 border-b border-slate-800/50">
           <div className="flex items-center gap-3">
-             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(79,70,229,0.5)]">
-                <ShieldCheck size={20} className="text-white" />
+             <div className="w-12 h-12 flex items-center justify-center">
+                <img src="/Logo.png" alt="govManage Logo" className="w-full h-full object-contain" />
              </div>
              <div>
                 <h1 className="text-lg font-black text-white tracking-tight leading-none">govManage</h1>
@@ -55,8 +59,8 @@ export default function App() {
           <button className={`nav-item ${currentTab === 'library' ? 'active' : ''}`} onClick={() => setCurrentTab('library')}>
             <FileText size={16} /> Policy Library
           </button>
-          <button className={`nav-item ${currentTab === 'upload' ? 'active' : ''}`} onClick={() => setCurrentTab('upload')}>
-            <UploadCloud size={16} /> Upload & Assess
+          <button className={`nav-item ${currentTab === 'database' ? 'active' : ''}`} onClick={() => setCurrentTab('database')}>
+            <Database size={16} /> Database Explorer
           </button>
 
           <div className="nav-section-label mt-4">Analytics</div>
@@ -70,6 +74,9 @@ export default function App() {
           <div className="nav-section-label mt-4">Tools</div>
           <button className={`nav-item ${currentTab === 'chat' ? 'active' : ''}`} onClick={() => setCurrentTab('chat')}>
             <MessageSquare size={16} /> AI Policy Chat
+          </button>
+          <button className={`nav-item ${currentTab === 'feedback' ? 'active' : ''}`} onClick={() => setCurrentTab('feedback')}>
+            <ThumbsUp size={16} /> Feedback & Improve
           </button>
           <button className={`nav-item ${currentTab === 'settings' ? 'active' : ''}`} onClick={() => setCurrentTab('settings')}>
             <Bell size={16} /> Notifications
@@ -113,14 +120,17 @@ export default function App() {
          <div className="p-6 md:p-8">
             {currentTab === 'hub' && <PolicyHub onNavigate={setCurrentTab} />}
             {currentTab === 'generate' && <GeneratePolicyWizard onSuccess={() => {}} />}
-            {currentTab === 'upload' && <UploadAssess />}
+            {currentTab === 'database' && <DatabaseExplorer />}
             {currentTab === 'library' && <PolicyLibrary />}
             {currentTab === 'compliance-report' && <ReportingChat mode="compliance" />}
             {currentTab === 'risk-report' && <ReportingChat mode="risk" />}
             {currentTab === 'chat' && <AiPolicyChatComponent />}
+            {currentTab === 'feedback' && <FeedbackDashboard />}
             {currentTab === 'settings' && <EmailSettings />}
          </div>
       </div>
+      
+      <AgentStatusWidget />
     </div>
   );
 }

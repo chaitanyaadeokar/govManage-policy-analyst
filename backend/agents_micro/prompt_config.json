@@ -1,0 +1,17 @@
+{
+    "policy_analyst": {
+        "amendment": "Include explicit policy citations and concrete conflict examples rather than generic statements.",
+        "last_updated": "2026-05-23T06:25:21.993331+00:00",
+        "version": 3
+    },
+    "compliance": {
+        "amendment": "Provide detailed regulatory references and step-by-step compliance checks for each recommendation.",
+        "last_updated": "2026-05-23T06:25:21.993331+00:00",
+        "version": 3
+    },
+    "risk_assessment": {
+        "amendment": "Add specific threat vectors, quantitative data, and a clear calculation method for TVI scores.",
+        "last_updated": "2026-05-23T06:25:21.993331+00:00",
+        "version": 3
+    }
+}

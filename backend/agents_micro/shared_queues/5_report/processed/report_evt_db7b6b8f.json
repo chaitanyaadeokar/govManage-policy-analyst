@@ -1,0 +1,11 @@
+{
+    "event_id": "evt_db7b6b8f",
+    "risk_level": "High",
+    "compliance_violation": null,
+    "audit_trace": [
+        "Policy Output: Conflict=True",
+        "Compliance Output: Auth=False",
+        "Decision Engine: Compliance evaluation failed (Authorized=False) due to missing role and clearance information, which mandates an automatic block. Additionally, the policy analyst flagged a conflict and the risk assessment rated the event as High risk, reinforcing the need to block the event."
+    ],
+    "final_action": "Auto Blocked"
+}

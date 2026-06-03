@@ -1,0 +1,38 @@
+{
+    "event_id": "evt_caad7685",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure that vendor due-diligence controls aren\u2019t bypassed during onboarding. All third-party systems must undergo mandatory security assessment. Align with selected frameworks and address selected risks.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "FFIEC_VENDOR_MANAGEMENT",
+            "NIST_SP_800_53_R5",
+            "ISO_27001",
+            "NYDFS_23_NYCRR_500",
+            "FFIEC_OUTSOURCING",
+            "SOC_2"
+        ],
+        "selected_risks": [
+            "RISK-012",
+            "RISK-009",
+            "RISK-011",
+            "RISK-007"
+        ]
+    },
+    "user_authorized": false,
+    "compliance_violation": "Insufficient role/clearance information prevents authorization. Additionally, the event does not provide evidence of vendor due\u2011diligence (required by NIST_SP_800_37 RMF-7) and lacks documented AI risk governance (required by NIST_AI_RMF GOVERN-1.1 and NIST-AI-01), resulting in violations of those controls.",
+    "matched_controls": [
+        "GOVERN-1.1",
+        "OECD-1.5",
+        "OECD-2.3",
+        "5.1",
+        "5.36",
+        "RMF-7",
+        "DOD-001",
+        "NIST-AI-01"
+    ]
+}

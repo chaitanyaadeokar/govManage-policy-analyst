@@ -1,0 +1,48 @@
+{
+    "event_id": "evt_aa2a802f",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "AI Governance",
+        "sector": "United States",
+        "additional_instructions": "Align with ISO/IEC 27001:2022, NIST AI Risk Management Framework, NIST Cybersecurity Framework, OECD AI Principles, and relevant US regulations (e.g., Executive Order on AI, NIST AI RMF). Include sections on model lifecycle, risk assessment, data privacy, accountability, and monitoring.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High"
+    },
+    "tvi_score": 0.78,
+    "risk_level": "High",
+    "identified_risks": [
+        {
+            "risk_name": "Regulatory Non\u2011Compliance",
+            "severity": 9,
+            "justification": "The policy must align with ISO/IEC 27001:2022, NIST AI RMF, NIST CSF, OECD AI Principles, and US Executive Orders; failure to meet any of these can result in fines, sanctions, and loss of operating licenses."
+        },
+        {
+            "risk_name": "Data Privacy Breach",
+            "severity": 8,
+            "justification": "AI model lifecycle handling of personal data without proper controls can violate GDPR\u2011like standards and US privacy laws, leading to breach notifications, litigation, and reputational harm."
+        },
+        {
+            "risk_name": "Model Bias and Discrimination",
+            "severity": 7,
+            "justification": "Inadequate risk assessment for fairness may produce biased outcomes, exposing the organization to civil rights lawsuits and damage to stakeholder trust."
+        },
+        {
+            "risk_name": "Adversarial Cyber Attack",
+            "severity": 8,
+            "justification": "Insufficient cybersecurity controls around model deployment can allow adversaries to manipulate inputs or extract model parameters, compromising confidentiality and integrity."
+        },
+        {
+            "risk_name": "Operational Downtime due to Model Drift",
+            "severity": 6,
+            "justification": "Lack of continuous monitoring can let model performance degrade, causing service interruptions and financial loss in critical US sector applications."
+        },
+        {
+            "risk_name": "Accountability & Governance Gaps",
+            "severity": 7,
+            "justification": "Without clear accountability mechanisms, incidents may go unreported, hindering remediation and violating governance expectations set by the referenced frameworks."
+        }
+    ],
+    "risk_narrative": "The high\u2011risk AI governance policy faces significant threats from regulatory non\u2011compliance, data privacy breaches, and adversarial attacks, compounded by potential bias, model drift, and weak accountability. Effective controls across the model lifecycle are essential to mitigate these interconnected risks.",
+    "governance_maturity_score": 1.0
+}

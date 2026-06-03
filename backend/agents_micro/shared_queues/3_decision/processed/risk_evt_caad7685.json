@@ -1,0 +1,57 @@
+{
+    "event_id": "evt_caad7685",
+    "event_type": "policy_upload",
+    "payload": {
+        "topic": "Third-Party Vendor Risk Management & SaaS Integrations",
+        "sector": "Financial Services",
+        "additional_instructions": "Ensure that vendor due-diligence controls aren\u2019t bypassed during onboarding. All third-party systems must undergo mandatory security assessment. Align with selected frameworks and address selected risks.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High",
+        "selected_compliances": [
+            "FFIEC_VENDOR_MANAGEMENT",
+            "NIST_SP_800_53_R5",
+            "ISO_27001",
+            "NYDFS_23_NYCRR_500",
+            "FFIEC_OUTSOURCING",
+            "SOC_2"
+        ],
+        "selected_risks": [
+            "RISK-012",
+            "RISK-009",
+            "RISK-011",
+            "RISK-007"
+        ]
+    },
+    "tvi_score": 0.82,
+    "risk_level": "High",
+    "identified_risks": [
+        {
+            "risk_name": "Third-Party Data Breach",
+            "severity": 9,
+            "justification": "Financial services data is highly sensitive; SaaS vendors may lack adequate controls, leading to unauthorized access or exfiltration of customer PII and transaction data."
+        },
+        {
+            "risk_name": "Compliance Violation (Regulatory)",
+            "severity": 8,
+            "justification": "Failure to perform mandatory security assessments can breach FFIEC, NIST, ISO 27001, NYDFS, and SOC 2 requirements, resulting in fines and enforcement actions."
+        },
+        {
+            "risk_name": "Operational Disruption from Vendor Failure",
+            "severity": 7,
+            "justification": "Critical banking functions reliant on third\u2011party SaaS platforms may experience downtime if the vendor experiences outages or insolvency, impacting service continuity."
+        },
+        {
+            "risk_name": "Supply Chain Attack",
+            "severity": 8,
+            "justification": "Adversaries can compromise a SaaS provider\u2019s development pipeline (e.g., malicious code injection) and propagate malware into the financial institution\u2019s environment."
+        },
+        {
+            "risk_name": "Due\u2011Diligence Process Bypass",
+            "severity": 9,
+            "justification": "If onboarding controls are circumvented, vendors may be onboarded without proper risk assessment, increasing exposure to all other identified threats."
+        }
+    ],
+    "risk_narrative": "The policy targets high\u2011impact risks inherent to third\u2011party SaaS integrations in financial services, notably data breaches, regulatory non\u2011compliance, and supply\u2011chain attacks. Bypassing due\u2011diligence controls amplifies these threats, driving a TVI score of 0.82, indicating a severe risk posture.",
+    "governance_maturity_score": 1.0
+}

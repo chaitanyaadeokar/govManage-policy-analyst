@@ -1,0 +1,13 @@
+{
+    "event_id": "evt_aa2a802f",
+    "event_type": "policy_upload",
+    "timestamp": "now",
+    "payload": {
+        "topic": "AI Governance",
+        "sector": "United States",
+        "additional_instructions": "Align with ISO/IEC 27001:2022, NIST AI Risk Management Framework, NIST Cybersecurity Framework, OECD AI Principles, and relevant US regulations (e.g., Executive Order on AI, NIST AI RMF). Include sections on model lifecycle, risk assessment, data privacy, accountability, and monitoring.",
+        "source": "ai_policy_chat_tool",
+        "mode": "hybrid",
+        "risk_level": "High"
+    }
+}

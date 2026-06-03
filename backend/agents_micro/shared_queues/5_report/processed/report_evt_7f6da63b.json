@@ -1,0 +1,11 @@
+{
+    "event_id": "evt_7f6da63b",
+    "risk_level": "High",
+    "compliance_violation": null,
+    "audit_trace": [
+        "Policy Output: Conflict=True",
+        "Compliance Output: Auth=False",
+        "Decision Engine: The event fails authorization because user role and clearance information are missing, resulting in Authorized=False. Additionally, a policy conflict was detected and the risk assessment rated the event as High risk with a TVI score of 0.9. Given the failed authorization and high risk, the system must block the event automatically."
+    ],
+    "final_action": "Auto Blocked"
+}

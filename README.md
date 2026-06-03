@@ -1,477 +1,203 @@
-# Agentic AI Governance System
+# govManage — AI-Powered GRC Intelligence Platform 🛡️
 
-**Professional-grade autonomous multi-agent system for enterprise governance and compliance.**
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![React 18](https://img.shields.io/badge/react-18-61dafb.svg)](https://react.dev/)
+[![Flask](https://img.shields.io/badge/Flask-Backend-black.svg)](https://flask.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-## 🎯 What Makes This Truly Agentic
+**govManage** is a next-generation Governance, Risk, and Compliance (GRC) platform. It leverages large language models (LLMs), retrieval-augmented generation (RAG), and a multi-agent orchestration pipeline to automate policy generation, conduct real-time risk assessments, and ensure compliance across enterprise operations.
 
-This system implements **genuine agentic AI** with:
-
-### ✅ Autonomous Reasoning (ReAct Loops)
-- Agents think, act, observe, and reason iteratively
-- Not just prompt templates - actual multi-step reasoning chains
-- Agents decide when to use tools and when they have enough information
-
-### ✅ Real Tool Use
-- Agents query databases, evaluate rules, detect anomalies
-- Not hallucinating decisions - using real data sources
-- Tools for: employee lookup, policy retrieval, rule evaluation, anomaly detection
-
-### ✅ Multi-Agent Collaboration
-- Specialized agents (Policy, Compliance, Risk) work in parallel
-- Shared memory system for coordination
-- Decision engine synthesizes findings through collaborative reasoning
-
-### ✅ Learning & Memory
-- **Episodic Memory**: Learns from past decisions
-- **Semantic Memory**: Extracts patterns and baselines
-- **Working Memory**: Coordinates current event processing
-- Agents query similar past cases to inform decisions
-
-### ✅ Anomaly Detection
-- Behavioral analysis against user baselines
-- Cross-event correlation detection
-- Statistical anomaly identification (>2 std deviations)
-
-### ✅ Self-Reflection
-- Agents reflect on outcomes for continuous improvement
-- Pattern extraction from decision history
-- Risk baseline adaptation
+![govManage Dashboard Concept](https://img.shields.io/badge/govManage-Dashboard-4f46e5?style=for-the-badge&logo=react)
 
 ---
 
-## 🏗️ Architecture
+## ✨ Core Capabilities
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     API Layer (FastAPI)                      │
-│              /api/v2/events, /api/v2/analytics              │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Agentic Orchestrator                        │
-│         Coordinates multi-agent collaboration                │
-└─────┬──────────────────┬──────────────────┬─────────────────┘
-      │                  │                  │
-      ▼                  ▼                  ▼
-┌──────────┐      ┌──────────┐      ┌──────────┐
-│ Policy   │      │Compliance│      │   Risk   │
-│ Analyst  │      │  Agent   │      │Assessment│
-│  Agent   │      │          │      │  Agent   │
-└────┬─────┘      └────┬─────┘      └────┬─────┘
-     │                 │                  │
-     │    ┌────────────▼──────────────┐   │
-     └───►│   Shared Memory System    │◄──┘
-          │  • Working Memory         │
-          │  • Episodic Memory        │
-          │  • Semantic Memory        │
-          └────────────┬──────────────┘
-                       │
-                       ▼
-          ┌────────────────────────┐
-          │   Decision Engine      │
-          │   Synthesizes findings │
-          └────────────┬───────────┘
-                       │
-                       ▼
-          ┌────────────────────────┐
-          │  MongoDB + Audit Logs  │
-          └────────────────────────┘
+- **🧠 Multi-Agent Pipeline:** A 9-stage asynchronous pipeline orchestrated via shared queues (Policy Analysis → Compliance Verification → Risk Assessment → Executive Decision Engine → Audit Logging → Persistence).
+- **🛡️ Real-Time Risk Engine:** Evaluates actions instantly using a custom Total Violation Index (TVI) and hard-coded business rules.
+- **📑 Automated Policy Generation:** Discovers regulatory frameworks dynamically and generates comprehensive policy packs (Objectives, Scope, Controls) exported as professional PDFs.
+- **🔍 Semantic Gap Analysis:** Upload policy documents to cross-reference them against global standards (ISO 27001, NIST AI RMF, GDPR, OECD AI) using ChromaDB vector search.
+- **📊 Automated Reporting:** Scheduled weekly executive snapshots generated via APScheduler and dispatched directly to stakeholders' inboxes.
+
+---
+
+## 🏗️ Architecture Overview
+
+The system is designed with a clear separation of concerns, enabling high throughput and easy scalability.
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ Frontend (React + Vite + Tailwind CSS)                  │
+│  - Interactive Dashboard, Policy Hub, Live Chat         │
+└───────────────────┬─────────────────────────────────────┘
+                    │ REST API (JSON)
+┌───────────────────▼─────────────────────────────────────┐
+│ Backend (Flask Application)                             │
+│  - Risk Engine (TVI scoring, Rule evaluation)           │
+│  - Semantic Search (ChromaDB Vector Store)              │
+│  - Report Generation (PDF Export, Email Dispatch)       │
+└──────────┬──────────────────────────────────────────────┘
+           │ File-based Queues (agents_micro/shared_queues)
+┌──────────▼──────────────────────────────────────────────┐
+│ Asynchronous Multi-Agent Pipeline                       │
+│  Orchestrator → Policy Analyst → Compliance Checker →   │
+│  Risk Assessor → Decision Engine → Audit Relay →        │
+│  Reporting Agent → Feedback Loop → Persistence          │
+└───────────────────┬─────────────────────────────────────┘
+                    │ 
+┌───────────────────▼─────────────────────────────────────┐
+│ Data Persistence Layer                                  │
+│  MongoDB Atlas (Document Store)                         │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
-- Python 3.9+
-- MongoDB running on localhost:27017 (or configure MONGO_URI)
-- Groq API key
+- **Python 3.13+** — [python.org](https://www.python.org/downloads/)
+- **Node.js 18+** — [nodejs.org](https://nodejs.org/)
+- **MongoDB** (Atlas account or local instance)
 
-### Installation
+### 1. Repository Setup
 
 ```bash
-# Clone repository
-git clone <repo-url>
-cd <repo-directory>
+git clone https://github.com/your-org/govmanage.git
+cd govmanage
+```
 
-# Install dependencies
-pip install -r requirements.txt
+### 2. Environment Configuration
 
-# Configure environment
+Copy the example environment file and populate it with your credentials:
+
+```bash
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
 ```
+*Note: You will need a [Groq API Key](https://console.groq.com/keys) for the LLM features, and a MongoDB connection URI.*
 
-### Configuration (.env)
-```env
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=openai/gpt-oss-120b
-MONGO_URI=mongodb://127.0.0.1:27017
-MONGO_DB_NAME=govmanage
-API_PORT=8000
-```
+### 3. Install Dependencies
 
-### Run Tests
-
+**Backend (Python):**
 ```bash
-python test_agentic_system.py
+# Recommended: use a virtual environment
+python -m venv .venv
+
+# Activate it:
+# Windows:
+.venv\Scripts\activate
+# Linux / macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-This will run 5 test scenarios demonstrating:
-- Financial transaction approval
-- Vendor blocking (rule violation)
-- Security alert processing
-- Unknown user blocking
-- Manager authorization
+> **Windows shortcut:** run `act.bat` — it creates the venv and installs everything automatically.
 
-### Start API Server
-
+**Frontend (Node):**
 ```bash
-python api.py
+cd frontend
+npm install
+cd ..
 ```
 
-API will be available at `http://localhost:8000`
+### 4. Launch the Platform
 
-Interactive docs: `http://localhost:8000/docs`
+**Windows:**
+```bat
+launch.bat
+```
+This opens all backend, agent, and frontend services in separate terminal windows.
+To stop everything: `close.bat`
 
----
-
-## 📡 API Usage
-
-### Submit Event (Async)
-
+**Linux / macOS:**
 ```bash
-curl -X POST http://localhost:8000/api/v2/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event_type": "financial_txn",
-    "payload": {
-      "user_id": "E101",
-      "amount": 1500,
-      "vendor": "Acme Corp",
-      "description": "Software purchase"
-    }
-  }'
+chmod +x launch.sh stop.sh
+./launch.sh
 ```
+This launches all services in separate terminal windows (gnome-terminal / xterm / macOS Terminal.app).  
+To stop everything: `./stop.sh`
 
-Response:
-```json
-{
-  "event_id": "uuid-here",
-  "status": "processing",
-  "message": "Event submitted successfully. Autonomous agents are analyzing.",
-  "processing_mode": "async"
-}
-```
+> **Headless / no GUI fallback:** if no GUI terminal is found, processes run in the background and log to `logs/`.
 
-### Submit Event (Sync)
-
-```bash
-curl -X POST http://localhost:8000/api/v2/events/sync \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event_type": "financial_txn",
-    "payload": {
-      "user_id": "E202",
-      "amount": 1500,
-      "vendor": "Enterprise Software Inc"
-    }
-  }'
-```
-
-Response:
-```json
-{
-  "event_id": "uuid-here",
-  "event_type": "financial_txn",
-  "status": "Approved",
-  "action_taken": "Approved",
-  "path_taken": "Safe Path",
-  "risk_level": "Low",
-  "tvi_score": 0.288,
-  "reasoning": "User authorized, no policy violations, low risk",
-  "timestamp": "2026-04-08T10:30:00",
-  "confidence": "high"
-}
-```
-
-### Get Decision
-
-```bash
-curl http://localhost:8000/api/v2/events/{event_id}
-```
-
-### Get Analytics
-
-```bash
-curl http://localhost:8000/api/v2/analytics
-```
-
-Response:
-```json
-{
-  "total_events": 150,
-  "approved": 95,
-  "blocked": 20,
-  "under_review": 35,
-  "average_tvi": 0.425,
-  "high_risk_percentage": 13.33
-}
-```
-
----
-
-## 🤖 Agent Capabilities
-
-### Policy Analyst Agent
-**Tools:**
-- `get_compliance_policies`: Fetch organizational policies
-- `get_hard_rules`: Retrieve enforcement rules
-- `evaluate_rule_against_event`: Test rules deterministically
-- `query_similar_past_decisions`: Learn from precedent
-
-**Reasoning:**
-- Systematically evaluates all applicable policies
-- Checks for conflicts and ambiguities
-- Provides evidence-based recommendations
-
-### Compliance Agent
-**Tools:**
-- `get_employee_info`: Verify identity and authorization
-- `get_hard_rules`: Check authorization rules
-- `evaluate_rule_against_event`: Verify permissions
-- `check_cross_event_correlation`: Detect attack patterns
-
-**Reasoning:**
-- Verifies user identity and role
-- Checks clearance levels
-- Detects suspicious activity patterns
-- Strict security-first approach
-
-### Risk Assessment Agent
-**Tools:**
-- `get_risk_parameters`: Get TVI calculation parameters
-- `check_user_behavior_anomaly`: Detect unusual behavior
-- `get_risk_baseline_for_event_type`: Compare to historical norms
-- `query_similar_past_decisions`: Learn from similar cases
-- `check_cross_event_correlation`: Identify coordinated threats
-
-**Reasoning:**
-- Calculates TVI score: (Threat × Vulnerability × Impact) / 1000
-- Applies risk multipliers for anomalies
-- Compares against learned baselines
-- Classifies risk level (Low/Medium/High)
-
-### Decision Engine Agent
-**Synthesis Logic:**
-- Analyzes all agent findings
-- Applies decision framework (Block/Review/Safe paths)
-- Handles conflicting signals
-- Provides audit trail
-- Assigns confidence levels
-
----
-
-## 📊 Decision Framework
-
-### Block Path (Immediate Rejection)
-- Unknown user (identity fraud)
-- Hard rule violation with block action
-- High risk + compliance violation
-- Suspicious cross-event correlation
-
-### Review Path (Human Escalation)
-- Medium-high risk (TVI 0.5-0.75)
-- Policy conflict without hard block
-- Behavioral anomaly detected
-- Conflicting agent recommendations
-
-### Safe Path (Auto-Approve)
-- User authorized
-- No policy violations
-- Low risk (TVI < 0.3)
-- No anomalies detected
-
----
-
-## 🧠 Memory & Learning
-
-### Episodic Memory
-- Stores past decisions and outcomes
-- Enables case-based reasoning
-- Supports "query similar cases" functionality
-
-### Semantic Memory
-- Extracts patterns from episodes
-- Maintains risk baselines per event type
-- Tracks fraud indicators
-- Stores user behavior baselines
-
-### Working Memory
-- Coordinates current event processing
-- Enables agent-to-agent communication
-- Stores intermediate findings
-
----
-
-## 🔧 Advanced Configuration
-
-### Custom Agents
-Extend `BaseAgenticAgent` to create specialized agents:
-
-```python
-from agentic_core.base_agent import BaseAgenticAgent
-
-class MyCustomAgent(BaseAgenticAgent):
-    def get_tools(self):
-        return [my_tool_1, my_tool_2]
-    
-    def get_system_prompt(self):
-        return "You are a specialized agent for..."
-    
-    def format_final_output(self, state):
-        return {"custom": "output"}
-```
-
-### Custom Tools
-Add tools using LangChain's `@tool` decorator:
-
-```python
-from langchain_core.tools import tool
-
-@tool
-def my_custom_tool(param: str) -> str:
-    """Tool description for the agent."""
-    # Implementation
-    return result
-```
-
----
-
-## 📈 Production Deployment
-
-### Scaling Considerations
-- Run API with multiple workers: `uvicorn api:app --workers 4`
-- Use Redis for shared memory in distributed setup
-- Replace file-based queues with Kafka/RabbitMQ
-- Add caching layer for database queries
-
-### Monitoring
-- Track agent reasoning iterations
-- Monitor tool call patterns
-- Alert on high block rates
-- Track confidence score distributions
-
-### Security
-- Implement API authentication (JWT)
-- Rate limiting per user/IP
-- Encrypt sensitive payload data
-- Audit log retention policies
+* **Frontend UI:** `http://localhost:5173`
+* **Backend API:** `http://localhost:5000`
 
 ---
 
 ## 🧪 Testing
 
-Run comprehensive test suite:
+The platform includes a comprehensive Pytest suite (114+ tests) covering the risk engine, database interactions, and mocked API routes.
+
 ```bash
-python test_agentic_system.py
-```
-
-Test individual components:
-```python
-from agentic_core.agents.policy_agent import PolicyAnalystAgent
-
-agent = PolicyAnalystAgent()
-result = agent.process_event("test-001", event_data)
+# Run the offline test suite
+pytest tests/ -v --tb=short
 ```
 
 ---
 
-## 📝 Database Schema
+## 🌍 Production Deployment
 
-### Collections
+### Important Prerequisites
+1. Set `FLASK_DEBUG=0`
+2. Set `CORS_ORIGINS` to your exact frontend domain (e.g., `https://govmanage.yourcompany.com`).
+3. Define environment variables in your hosting provider's Secrets Manager (do not upload `.env`).
 
-**employees**
-```json
-{
-  "user_id": "E101",
-  "role": "employee",
-  "clearance": "level_1",
-  "name": "Alice"
-}
+### Option A: PaaS (Render, Railway, Heroku)
+The repository includes a `Procfile` configured for Gunicorn.
+1. Deploy the backend repository.
+2. The platform will automatically execute: `gunicorn wsgi:app --workers 4 --bind 0.0.0.0:$PORT`
+3. Deploy the `frontend/` directory to Vercel, Netlify, or Render Static Sites. Make sure to set `VITE_API_URL` to your deployed backend.
+
+### Option B: Linux Server (Gunicorn + Nginx)
+```bash
+# Install backend requirements
+pip install -r requirements.txt
+
+# Start Gunicorn
+gunicorn wsgi:app --workers 4 --bind 127.0.0.1:5000 --timeout 120
+
+# Build Frontend
+cd frontend
+npm run build
+# Serve the resulting /dist folder using Nginx
 ```
 
-**policies**
-```json
-{
-  "policy_id": "P001",
-  "name": "Financial transactions > 1000 require manager approval",
-  "sector": "Finance",
-  "risk": "Medium"
-}
-```
-
-**rule_engine**
-```json
-{
-  "rule_code": "R001",
-  "description": "Transactions above threshold require manager role",
-  "condition": "amount_gt_role_required",
-  "threshold": 1000,
-  "required_role": "manager",
-  "severity": "high",
-  "action_on_fail": "block",
-  "enabled": true
-}
-```
-
-**governance_actions** (decisions)
-```json
-{
-  "event_id": "uuid",
-  "event_type": "financial_txn",
-  "status": "Approved",
-  "action_taken": "Approved",
-  "path_taken": "Safe Path",
-  "risk_level": "Low",
-  "tvi_score": 0.288,
-  "reasoning": "...",
-  "audit_trace": [...],
-  "timestamp": "2026-04-08T10:30:00"
-}
-```
+*Note: The local file-based micro-agent queue (`agents_micro/shared_queues`) is designed for single-server execution. For multi-server deployment, migrate this queue to Redis or RabbitMQ.*
 
 ---
 
-## 🤝 Contributing
+## 🔐 Environment Variables
 
-This is a professional-grade system. Contributions should maintain:
-- Autonomous reasoning capabilities
-- Tool-based decision making
-- Comprehensive testing
-- Clear documentation
+| Variable | Description | Required |
+|----------|-------------|:--------:|
+| `GROQ_API_KEY` | LLM inference API key | Yes |
+| `MONGO_URI` | MongoDB Atlas Connection String | Yes |
+| `CORS_ORIGINS` | Allowed frontend domains | Prod Only |
+| `FLASK_DEBUG` | Set to `0` in production | No |
+| `SMTP_*` | Credentials for weekly automated reports | No |
+| `TAVILY_API_KEY` | Real-time web intelligence capability | No |
+| `FIRECRAWL_API_KEY` | Automated regulatory web crawling | No |
 
----
-
-## 📄 License
-
-[Your License Here]
-
----
-
-## 🎓 Key Differences from Non-Agentic Systems
-
-| Feature | Non-Agentic (Old) | Agentic (New) |
-|---------|-------------------|---------------|
-| Decision Making | Hardcoded prompts | ReAct reasoning loops |
-| Tool Use | None (hallucinated) | Real database queries |
-| Learning | None | Episodic + semantic memory |
-| Collaboration | File-based queues | Shared memory coordination |
-| Anomaly Detection | None | Statistical + behavioral |
-| Reasoning | Single LLM call | Multi-step iterative |
-| Adaptability | Static | Learns from outcomes |
+*Refer to `.env.production.example` for a complete production configuration template.*
 
 ---
 
-**Built with ❤️ for enterprise governance**
+## 📂 Project Structure
+
+```text
+govManage-policy-analyst/
+├── app.py                 # Core REST API Controller
+├── database.py            # MongoDB Document Models & Access Layer
+├── scheduler.py           # APScheduler background tasks
+├── email_service.py       # Modular SMTP & HTML rendering
+├── vector_store.py        # ChromaDB bindings for RAG
+├── report_pdf.py          # ReportLab PDF generation utilities
+├── agents_micro/          # Multi-agent asynchronous pipeline
+├── frontend/              # React Vite Application
+├── tests/                 # Unit & Integration tests
+└── scratch/               # Live system validation scripts
+```
+
+---
+*Developed by the Advanced Agentic Coding Team.*
