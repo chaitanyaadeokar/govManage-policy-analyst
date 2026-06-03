@@ -38,12 +38,13 @@ export default function AgentStatusWidget() {
 
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end" style={{ pointerEvents: 'none' }}>
       {/* Popover Panel */}
       <div 
         className={`mb-4 overflow-hidden transition-all duration-300 ease-in-out transform origin-bottom-right ${
           isOpen ? 'scale-100 opacity-100 max-h-[500px]' : 'scale-95 opacity-0 max-h-0 pointer-events-none'
         }`}
+        style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
       >
         <div className="w-80 bg-white/90 backdrop-blur-xl border border-indigo-100/50 shadow-2xl rounded-2xl p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
@@ -94,6 +95,7 @@ export default function AgentStatusWidget() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="group relative flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-[0_8px_30px_rgb(79,70,229,0.3)] hover:shadow-[0_8px_40px_rgb(79,70,229,0.4)] transition-all duration-300 hover:-translate-y-1"
+        style={{ pointerEvents: 'auto' }}
       >
         <Brain 
           size={24} 

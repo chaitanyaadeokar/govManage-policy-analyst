@@ -427,7 +427,7 @@ export default function GeneratePolicyWizard({ onSuccess }: Props) {
           <div className="flex justify-between">
             <button className="btn-secondary" onClick={() => setStep(1)}>Back</button>
             <button className="btn-primary" onClick={() => setStep(3)}>
-              Next: Select Risks <ArrowRight size={16} />
+              <span style={{ display: 'contents', pointerEvents: 'none' }}>Next: Select Risks <ArrowRight size={16} /></span>
             </button>
           </div>
         </div>
@@ -497,7 +497,7 @@ export default function GeneratePolicyWizard({ onSuccess }: Props) {
           <div className="flex justify-between">
             <button className="btn-secondary" onClick={() => setStep(2)}>Back</button>
             <button className="btn-primary" onClick={() => setStep(4)}>
-              Next: Configure <ArrowRight size={16} />
+              <span style={{ display: 'contents', pointerEvents: 'none' }}>Next: Configure <ArrowRight size={16} /></span>
             </button>
           </div>
         </div>
