@@ -20,7 +20,12 @@ Exports:
 from __future__ import annotations
 
 import io
+import os
 from typing import Any, Dict, List
+
+# ── Project paths ─────────────────────────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOGO_PATH = os.path.join(BASE_DIR, "Logo.png")
 
 # ── ReportLab ─────────────────────────────────────────────────────────────────
 try:
@@ -165,7 +170,7 @@ def _make_footer(accent=None):
             logo_height = 20 * mm
             logo_x = 12 * mm       # Less than standard _MARGIN (20mm) to push it left
             logo_y = h - 28 * mm   # Move it up 
-            canvas.drawImage("Logo.png", logo_x, logo_y, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
+            canvas.drawImage(LOGO_PATH, logo_x, logo_y, width=logo_width, height=logo_height, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass # fail gracefully if Logo.png is not found or invalid
 
